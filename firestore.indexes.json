@@ -23,6 +23,14 @@
         { "fieldPath": "donorId", "order": "ASCENDING" },
         { "fieldPath": "hasReceiptable", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "donations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoryIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "locked", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -10,6 +10,8 @@
   <script type="module" src="js/company.js"></script>
   <script type="module" src="js/shell.js"></script>
   <script type="module" src="js/donors.js"></script>
+  <script type="module" src="js/categories.js"></script>
+  <script type="module" src="js/paymentMethods.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -426,11 +428,169 @@
         <template x-if="!creatingCompany && route === 'donations'">
           <div><h1>Donations</h1><p class="muted">Coming in Phase 5.</p></div>
         </template>
+        <!-- ── Categories ──────────────────────────────────────────────── -->
         <template x-if="!creatingCompany && route === 'categories'">
-          <div><h1>Categories</h1><p class="muted">Coming in Phase 4.</p></div>
+          <div x-data="categories">
+
+            <!-- List view -->
+            <template x-if="view === 'list'">
+              <div>
+                <div class="page-header">
+                  <h1>Categories</h1>
+                  <button @click="startCreate">+ New Category</button>
+                </div>
+                <div x-show="loading && !categories.length" class="muted">Loading…</div>
+                <div x-show="!loading && !categories.length" class="empty-state">No categories found.</div>
+                <table x-show="categories.length > 0">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Receiptable</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="cat in categories" :key="cat.id">
+                      <tr>
+                        <td x-text="cat.name"></td>
+                        <td>
+                          <span class="badge" :class="cat.receiptable ? 'receiptable' : 'non-receiptable'"
+                            x-text="cat.receiptable ? 'Yes' : 'No'"></span>
+                        </td>
+                        <td><span class="badge" :class="cat.status" x-text="cat.status"></span></td>
+                        <td>
+                          <div class="action-group">
+                            <button class="secondary small" @click="startEdit(cat)">Edit</button>
+                            <template x-if="cat.status === 'active'">
+                              <button class="secondary small danger" @click="archiveCategory(cat)">Archive</button>
+                            </template>
+                            <template x-if="cat.status === 'archived'">
+                              <button class="secondary small" @click="unarchiveCategory(cat)">Restore</button>
+                            </template>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+
+            <!-- Form view -->
+            <template x-if="view === 'form'">
+              <div class="form-page">
+                <div class="page-header">
+                  <h1 x-text="formMode === 'create' ? 'New Category' : 'Edit Category'"></h1>
+                  <button class="secondary" @click="cancelForm">Cancel</button>
+                </div>
+
+                <template x-if="formMode === 'edit' && inUseCount > 0">
+                  <div class="warning-card">
+                    <span x-text="'This category is referenced by ' + inUseCount + ' donation(s).'"></span>
+                    <template x-if="lockedUseCount > 0">
+                      <strong x-text="' ' + lockedUseCount + ' are locked (receipt issued) — the receiptable flag cannot be changed.'"></strong>
+                    </template>
+                  </div>
+                </template>
+
+                <label>
+                  Name <span class="required">*</span>
+                  <input type="text" x-model="form.name" :class="{ error: formErrors.name }" maxlength="100">
+                  <span class="field-error" x-show="formErrors.name" x-text="formErrors.name"></span>
+                </label>
+
+                <div class="form-type-toggle">
+                  <label>
+                    <input type="checkbox" x-model="form.receiptable" role="switch"
+                      :disabled="formMode === 'edit' && lockedUseCount > 0">
+                    Tax receiptable
+                  </label>
+                  <span class="field-error" x-show="formErrors.receiptable" x-text="formErrors.receiptable"></span>
+                </div>
+
+                <div class="form-actions">
+                  <button @click="saveCategory" :disabled="saving || checkingUse">
+                    <span x-show="!saving" x-text="formMode === 'create' ? 'Create Category' : 'Save Changes'"></span>
+                    <span x-show="saving">Saving…</span>
+                  </button>
+                  <button class="secondary" @click="cancelForm" :disabled="saving">Cancel</button>
+                </div>
+              </div>
+            </template>
+
+          </div><!-- end x-data="categories" -->
         </template>
+
+        <!-- ── Payment Methods ─────────────────────────────────────────── -->
         <template x-if="!creatingCompany && route === 'payment-methods'">
-          <div><h1>Payment Methods</h1><p class="muted">Coming in Phase 4.</p></div>
+          <div x-data="paymentMethods">
+
+            <!-- List view -->
+            <template x-if="view === 'list'">
+              <div>
+                <div class="page-header">
+                  <h1>Payment Methods</h1>
+                  <button @click="startCreate">+ New Payment Method</button>
+                </div>
+                <div x-show="loading && !items.length" class="muted">Loading…</div>
+                <div x-show="!loading && !items.length" class="empty-state">No payment methods found.</div>
+                <table x-show="items.length > 0">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="item in items" :key="item.id">
+                      <tr>
+                        <td x-text="item.name"></td>
+                        <td><span class="badge" :class="item.status" x-text="item.status"></span></td>
+                        <td>
+                          <div class="action-group">
+                            <button class="secondary small" @click="startEdit(item)">Edit</button>
+                            <template x-if="item.status === 'active'">
+                              <button class="secondary small danger" @click="archiveItem(item)">Archive</button>
+                            </template>
+                            <template x-if="item.status === 'archived'">
+                              <button class="secondary small" @click="unarchiveItem(item)">Restore</button>
+                            </template>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+
+            <!-- Form view -->
+            <template x-if="view === 'form'">
+              <div class="form-page">
+                <div class="page-header">
+                  <h1 x-text="formMode === 'create' ? 'New Payment Method' : 'Edit Payment Method'"></h1>
+                  <button class="secondary" @click="cancelForm">Cancel</button>
+                </div>
+
+                <label>
+                  Name <span class="required">*</span>
+                  <input type="text" x-model="form.name" :class="{ error: formErrors.name }" maxlength="100">
+                  <span class="field-error" x-show="formErrors.name" x-text="formErrors.name"></span>
+                </label>
+
+                <div class="form-actions">
+                  <button @click="saveItem" :disabled="saving">
+                    <span x-show="!saving" x-text="formMode === 'create' ? 'Create Payment Method' : 'Save Changes'"></span>
+                    <span x-show="saving">Saving…</span>
+                  </button>
+                  <button class="secondary" @click="cancelForm" :disabled="saving">Cancel</button>
+                </div>
+              </div>
+            </template>
+
+          </div><!-- end x-data="paymentMethods" -->
         </template>
         <template x-if="!creatingCompany && route === 'reports'">
           <div><h1>Reports</h1><p class="muted">Coming in Phase 6.</p></div>

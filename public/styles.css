@@ -256,8 +256,10 @@ body { margin: 0; }
   text-transform: capitalize;
   vertical-align: middle;
 }
-.badge.active   { background: #dcfce7; color: #166534; }
-.badge.archived { background: #f3f4f6; color: #6b7280; }
+.badge.active           { background: #dcfce7; color: #166534; }
+.badge.archived         { background: #f3f4f6; color: #6b7280; }
+.badge.receiptable      { background: #dbeafe; color: #1d4ed8; }
+.badge.non-receiptable  { background: #fef9c3; color: #92400e; }
 
 /* Load-more row */
 .load-more { text-align: center; padding: 1rem 0; }
