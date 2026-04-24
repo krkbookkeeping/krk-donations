@@ -2,8 +2,11 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { validateCompany } from "./shared/schemas/validators";
+import { mergeDonors } from "./mergeDonors";
 
 initializeApp();
+
+export { mergeDonors };
 
 // All callables are pinned to Toronto for data-residency alignment with the
 // Firestore (northamerica-northeast2) database.

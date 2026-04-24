@@ -9,6 +9,7 @@
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/company.js"></script>
   <script type="module" src="js/shell.js"></script>
+  <script type="module" src="js/donors.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -64,6 +65,7 @@
       </header>
 
       <section class="content">
+        <!-- New company inline form -->
         <template x-if="creatingCompany">
           <div class="inline-company-form">
             <h2>New Company</h2>
@@ -79,9 +81,348 @@
           </div>
         </template>
 
+        <!-- ── Donors ─────────────────────────────────────────────────── -->
         <template x-if="!creatingCompany && route === 'donors'">
-          <div><h1>Donors</h1><p class="muted">Coming in Phase 3.</p></div>
+          <div x-data="donors">
+
+            <!-- List view -->
+            <template x-if="view === 'list'">
+              <div>
+                <div class="page-header">
+                  <h1>Donors</h1>
+                  <button @click="startCreate">+ New Donor</button>
+                </div>
+                <div class="filters-bar">
+                  <input type="search" placeholder="Search donors…" x-model="searchQuery"
+                         @input="onSearchInput" class="search-input">
+                  <select x-model="statusFilter" @change="onFilterChange">
+                    <option value="active">Active</option>
+                    <option value="archived">Archived</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+                <div x-show="loading && !donors.length" class="muted">Loading…</div>
+                <div x-show="!loading && !donors.length" class="empty-state">No donors found.</div>
+                <table x-show="donors.length > 0">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="donor in donors" :key="donor.id">
+                      <tr class="clickable-row" @click="showDetail(donor)">
+                        <td x-text="donorDisplayName(donor)"></td>
+                        <td x-text="donor.email || '—'"></td>
+                        <td x-text="donor.phone || '—'"></td>
+                        <td><span class="badge" :class="donor.status" x-text="donor.status"></span></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+                <div x-show="hasMore" class="load-more">
+                  <button class="secondary" @click="loadMore" :disabled="loading">
+                    <span x-show="!loading">Load more</span>
+                    <span x-show="loading">Loading…</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Detail view -->
+            <template x-if="view === 'detail'">
+              <div>
+                <div class="page-header">
+                  <div>
+                    <button class="secondary small" @click="view = 'list'">&larr; Donors</button>
+                    <h1 x-text="donorDisplayName(selected)" style="display:inline;margin-left:.5rem"></h1>
+                    <span class="badge" :class="selected.status" x-text="selected.status"></span>
+                  </div>
+                  <div class="action-group">
+                    <button @click="startEdit">Edit</button>
+                    <button class="secondary" @click="startMerge">Merge</button>
+                    <template x-if="selected.status === 'active'">
+                      <button class="secondary danger" @click="archiveDonor">Archive</button>
+                    </template>
+                    <template x-if="selected.status === 'archived'">
+                      <button class="secondary" @click="unarchiveDonor">Restore</button>
+                    </template>
+                  </div>
+                </div>
+
+                <div class="detail-grid">
+                  <div class="detail-card">
+                    <h3>Contact</h3>
+                    <dl>
+                      <template x-if="selected.firstName || selected.lastName">
+                        <div><dt>Name</dt><dd x-text="(selected.firstName + ' ' + selected.lastName).trim()"></dd></div>
+                      </template>
+                      <template x-if="selected.orgName">
+                        <div><dt>Organization</dt><dd x-text="selected.orgName"></dd></div>
+                      </template>
+                      <template x-if="selected.email">
+                        <div><dt>Email</dt><dd><a :href="'mailto:' + selected.email" x-text="selected.email"></a></dd></div>
+                      </template>
+                      <template x-if="selected.phone">
+                        <div><dt>Phone</dt><dd x-text="selected.phone"></dd></div>
+                      </template>
+                      <template x-if="selected.preferredContact && selected.preferredContact !== 'any'">
+                        <div><dt>Preferred contact</dt><dd x-text="selected.preferredContact"></dd></div>
+                      </template>
+                    </dl>
+                  </div>
+
+                  <div class="detail-card" x-show="selected.address?.line1">
+                    <h3>Address</h3>
+                    <address>
+                      <span x-text="selected.address?.line1"></span><br>
+                      <span x-show="selected.address?.line2" x-text="selected.address?.line2"></span>
+                      <span x-show="selected.address?.line2"><br></span>
+                      <span x-text="[selected.address?.city, selected.address?.province].filter(Boolean).join(', ')"></span><br>
+                      <span x-text="[selected.address?.postalCode, selected.address?.country].filter(Boolean).join(' ')"></span>
+                    </address>
+                  </div>
+
+                  <div class="detail-card" x-show="selected.notes">
+                    <h3>Notes</h3>
+                    <p x-text="selected.notes" class="notes-text"></p>
+                  </div>
+                </div>
+
+                <div class="detail-card" style="margin-top:1rem">
+                  <div class="section-header">
+                    <h3>Donations</h3>
+                    <span class="muted" x-text="'YTD receiptable: ' + formatCents(ytdReceiptable)"></span>
+                  </div>
+                  <div x-show="loadingDonations" class="muted">Loading…</div>
+                  <div x-show="!loadingDonations && !recentDonations.length" class="muted">No donations yet.</div>
+                  <table x-show="recentDonations.length > 0" class="compact-table">
+                    <thead><tr><th>Date</th><th>Amount</th><th>Payment</th></tr></thead>
+                    <tbody>
+                      <template x-for="don in recentDonations" :key="don.id">
+                        <tr>
+                          <td x-text="don.date"></td>
+                          <td x-text="formatCents(don.totalAmountCents)"></td>
+                          <td x-text="don.paymentMethodId"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+
+            <!-- Form view -->
+            <template x-if="view === 'form'">
+              <div class="form-page">
+                <div class="page-header">
+                  <h1 x-text="formMode === 'create' ? 'New Donor' : 'Edit Donor'"></h1>
+                  <button class="secondary" @click="cancelForm">Cancel</button>
+                </div>
+
+                <!-- Duplicate warning -->
+                <template x-if="duplicates.length > 0">
+                  <div class="warning-card">
+                    <strong>Possible duplicate(s) found:</strong>
+                    <ul>
+                      <template x-for="d in duplicates" :key="d.id">
+                        <li>
+                          <span x-text="donorDisplayName(d)"></span>
+                          <span class="muted" x-text="' — ' + d.reason"></span>
+                          <button class="link-button" @click="showDetail(d); view = 'detail'">View</button>
+                        </li>
+                      </template>
+                    </ul>
+                    <div>
+                      <button class="secondary" @click="proceedDespiteDuplicates">Save anyway</button>
+                      <button class="secondary" @click="duplicates = []">Review</button>
+                    </div>
+                  </div>
+                </template>
+
+                <div class="form-type-toggle">
+                  <label>
+                    <input type="checkbox" x-model="form.isOrg" role="switch">
+                    Organization (not an individual)
+                  </label>
+                </div>
+
+                <template x-if="!form.isOrg">
+                  <div class="form-row">
+                    <label>
+                      First Name <span class="required">*</span>
+                      <input type="text" x-model="form.firstName" :class="{ error: formErrors.firstName }">
+                      <span class="field-error" x-show="formErrors.firstName" x-text="formErrors.firstName"></span>
+                    </label>
+                    <label>
+                      Last Name <span class="required">*</span>
+                      <input type="text" x-model="form.lastName">
+                    </label>
+                  </div>
+                </template>
+                <template x-if="form.isOrg">
+                  <label>
+                    Organization Name <span class="required">*</span>
+                    <input type="text" x-model="form.orgName" :class="{ error: formErrors.firstName }">
+                    <span class="field-error" x-show="formErrors.firstName" x-text="formErrors.firstName"></span>
+                  </label>
+                </template>
+
+                <div class="form-row">
+                  <label>
+                    Email
+                    <input type="email" x-model="form.email" :class="{ error: formErrors.email }">
+                    <span class="field-error" x-show="formErrors.email" x-text="formErrors.email"></span>
+                  </label>
+                  <label>
+                    Phone
+                    <input type="tel" x-model="form.phone" :class="{ error: formErrors.phone }">
+                    <span class="field-error" x-show="formErrors.phone" x-text="formErrors.phone"></span>
+                  </label>
+                </div>
+
+                <details>
+                  <summary>Address</summary>
+                  <div style="margin-top:.5rem">
+                    <label>Address line 1<input type="text" x-model="form.address.line1"></label>
+                    <label>Address line 2<input type="text" x-model="form.address.line2"></label>
+                    <div class="form-row">
+                      <label>City<input type="text" x-model="form.address.city"></label>
+                      <label>Province<input type="text" x-model="form.address.province" maxlength="2" placeholder="ON"></label>
+                    </div>
+                    <div class="form-row">
+                      <label>Postal code<input type="text" x-model="form.address.postalCode"></label>
+                      <label>Country<input type="text" x-model="form.address.country"></label>
+                    </div>
+                  </div>
+                </details>
+
+                <label>
+                  Preferred contact
+                  <select x-model="form.preferredContact">
+                    <option value="any">Any</option>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                    <option value="mail">Mail</option>
+                  </select>
+                </label>
+
+                <label>
+                  Notes
+                  <textarea x-model="form.notes" rows="3" maxlength="2000"></textarea>
+                </label>
+
+                <div class="form-actions">
+                  <button @click="saveDonor" :disabled="saving">
+                    <span x-show="!saving" x-text="formMode === 'create' ? 'Create Donor' : 'Save Changes'"></span>
+                    <span x-show="saving">Saving…</span>
+                  </button>
+                  <button class="secondary" @click="cancelForm" :disabled="saving">Cancel</button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Merge view -->
+            <template x-if="view === 'merge'">
+              <div>
+                <div class="page-header">
+                  <h1>Merge Donors</h1>
+                  <button class="secondary" @click="cancelMerge">Cancel</button>
+                </div>
+
+                <!-- Step: select secondaries -->
+                <template x-if="mergeStep === 'select'">
+                  <div>
+                    <p>Merging <strong x-text="donorDisplayName(selected)"></strong> (primary) with the donors you select below. All selected donors will be archived and their donations moved to the primary.</p>
+                    <p class="muted">Click rows to toggle selection. The primary donor is highlighted.</p>
+                    <table>
+                      <thead><tr><th></th><th>Name</th><th>Email</th><th>Phone</th></tr></thead>
+                      <tbody>
+                        <template x-for="donor in donors" :key="donor.id">
+                          <tr
+                            :class="{
+                              'merge-primary': donor.id === selected.id,
+                              'merge-selected': isSecondary(donor),
+                              'clickable-row': donor.id !== selected.id
+                            }"
+                            @click="donor.id !== selected.id && toggleSecondary(donor)"
+                          >
+                            <td>
+                              <template x-if="donor.id === selected.id">
+                                <span class="badge active">Primary</span>
+                              </template>
+                              <template x-if="donor.id !== selected.id">
+                                <input type="checkbox" :checked="isSecondary(donor)" @click.stop="toggleSecondary(donor)">
+                              </template>
+                            </td>
+                            <td x-text="donorDisplayName(donor)"></td>
+                            <td x-text="donor.email || '—'"></td>
+                            <td x-text="donor.phone || '—'"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                    <div class="form-actions">
+                      <button @click="proceedToResolve" :disabled="mergeSecondaries.length === 0">
+                        Review conflicts (<span x-text="mergeSecondaries.length"></span> selected)
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Step: confirm (with conflict resolution) -->
+                <template x-if="mergeStep === 'confirm'">
+                  <div>
+                    <template x-if="mergeConflicts.length > 0">
+                      <div>
+                        <h3>Resolve conflicting fields</h3>
+                        <p class="muted">Choose which value to keep for each field where the donors differ.</p>
+                        <template x-for="conflict in mergeConflicts" :key="conflict.key">
+                          <div class="conflict-row">
+                            <strong x-text="conflict.label"></strong>
+                            <div class="conflict-options">
+                              <template x-for="opt in conflict.options" :key="opt.donorId">
+                                <label class="conflict-option" x-show="opt.value">
+                                  <input type="radio" :name="'resolve-' + conflict.key" :value="opt.value"
+                                         x-model="mergeResolutions[conflict.key]">
+                                  <span class="opt-source muted" x-text="opt.name + ':'"></span>
+                                  <span x-text="opt.value"></span>
+                                </label>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                    <template x-if="mergeConflicts.length === 0">
+                      <p class="muted">No conflicting fields — the donors' data is compatible.</p>
+                    </template>
+
+                    <div class="warning-card" x-show="mergeDonations > 0">
+                      <strong x-text="mergeDonations + ' donation(s) will be reassigned'"></strong> from the selected donors to <span x-text="donorDisplayName(selected)"></span>.
+                    </div>
+
+                    <p class="error" x-show="mergeError" x-text="mergeError"></p>
+
+                    <div class="form-actions">
+                      <button @click="executeMerge" :disabled="merging" class="danger">
+                        <span x-show="!merging">Confirm Merge</span>
+                        <span x-show="merging">Merging…</span>
+                      </button>
+                      <button class="secondary" @click="mergeStep = 'select'" :disabled="merging">Back</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+          </div><!-- end x-data="donors" -->
         </template>
+
+        <!-- ── Other sections (placeholders) ────────────────────────────── -->
         <template x-if="!creatingCompany && route === 'donations'">
           <div><h1>Donations</h1><p class="muted">Coming in Phase 5.</p></div>
         </template>
@@ -105,7 +446,6 @@
   </div>
 
   <script>
-    // Hide Alpine template until it's bootstrapped.
     const styleEl = document.createElement("style");
     styleEl.textContent = "[x-cloak] { display: none !important; }";
     document.head.appendChild(styleEl);
