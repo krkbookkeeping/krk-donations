@@ -128,20 +128,17 @@ document.addEventListener("alpine:init", () => {
     // Lookup tables (categories + payment methods)
     // ─────────────────────────────────────────────────────────────────────
     async loadLookups() {
+      // Avoid composite-index requirement: fetch all, sort/filter client-side.
       const [catSnap, pmSnap] = await Promise.all([
-        getDocs(query(
-          companyCollection("categories"),
-          where("status", "==", "active"),
-          orderBy("name")
-        )),
-        getDocs(query(
-          companyCollection("paymentMethods"),
-          where("status", "==", "active"),
-          orderBy("name")
-        )),
+        getDocs(query(companyCollection("categories"),   orderBy("name"))),
+        getDocs(query(companyCollection("paymentMethods"), orderBy("name"))),
       ]);
-      this.categories   = catSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      this.paymentMethods = pmSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      this.categories = catSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((d) => d.status === "active");
+      this.paymentMethods = pmSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((d) => d.status === "active");
     },
 
     categoryById(id) {
@@ -201,13 +198,17 @@ document.addEventListener("alpine:init", () => {
       try {
         const tokens = q.toLowerCase().split(/\s+/).filter((t) => t.length >= 2).slice(0, 10);
         if (!tokens.length) { this.donorResults = []; return; }
+        // No status filter here — combining array-contains-any with ==
+        // requires a composite index. Filter active donors client-side instead.
         const snap = await getDocs(query(
           companyCollection("donors"),
           where("searchTokens", "array-contains-any", tokens),
-          where("status", "==", "active"),
-          limit(8)
+          limit(10)
         ));
-        this.donorResults = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        this.donorResults = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((d) => d.status !== "archived")
+          .slice(0, 8);
         this.showDonorDropdown = this.donorResults.length > 0;
       } finally {
         this.searchingDonors = false;
