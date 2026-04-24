@@ -379,3 +379,97 @@ button.danger:hover {
 
 /* Small button variant */
 button.small { padding: 0.3rem 0.7rem; font-size: 0.82rem; }
+
+/* --- Donations ------------------------------------------------------ */
+
+/* Donor search */
+.donor-search-wrap { position: relative; margin-bottom: 0.5rem; }
+
+.donor-dropdown {
+  position: absolute;
+  top: calc(100% - 0.5rem);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--topbar-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.donor-dropdown-item {
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.donor-dropdown-item:hover { background: #f0f4ff; }
+
+.donor-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.3rem;
+}
+
+.donor-selected { font-size: 0.88rem; }
+
+/* Inline new-donor panel */
+.new-donor-panel {
+  background: #f8faff;
+  border: 1px solid #c7d7f8;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+
+/* Allocation grid */
+.alloc-section { margin-top: 1.25rem; }
+.alloc-heading { margin: 0 0 0.5rem; font-size: 1rem; }
+
+.alloc-table { width: 100%; }
+.alloc-table th { font-size: 0.82rem; color: var(--muted); font-weight: 600; padding: 0.3rem 0.5rem; }
+.alloc-table td { padding: 0.3rem 0.5rem; vertical-align: top; }
+.alloc-table select, .alloc-table input { margin: 0; }
+
+.alloc-amount { width: 110px; }
+.alloc-rec-cell { text-align: center; vertical-align: middle; }
+.alloc-rec-cell input[type="checkbox"] { width: auto; margin: 0; cursor: default; }
+.alloc-remove { color: #b91c1c; font-size: 0.9rem; padding: 0.2rem 0.4rem; }
+.alloc-remove:disabled { color: #9ca3af; }
+
+/* Balance bar */
+.balance-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+}
+.balance-bar.balance-ok {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+.balance-bar.balance-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.balance-sep { color: var(--muted); }
+.balance-diff { font-size: 0.85rem; }
+.balance-check { font-weight: 600; }
+
+/* Batch mode */
+.batch-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; cursor: pointer; }
+.batch-toggle input[type="checkbox"] { width: auto; margin: 0; }
+.batch-hint { font-size: 0.85rem; margin-top: 0.5rem; }
+
+/* Lock badge in donations list */
+.lock-badge { font-size: 1rem; cursor: help; }

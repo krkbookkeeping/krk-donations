@@ -10,6 +10,7 @@
   <script type="module" src="js/company.js"></script>
   <script type="module" src="js/shell.js"></script>
   <script type="module" src="js/donors.js"></script>
+  <script type="module" src="js/donations.js"></script>
   <script type="module" src="js/categories.js"></script>
   <script type="module" src="js/paymentMethods.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
@@ -424,9 +425,286 @@
           </div><!-- end x-data="donors" -->
         </template>
 
-        <!-- ── Other sections (placeholders) ────────────────────────────── -->
+        <!-- ── Donations ───────────────────────────────────────────────── -->
         <template x-if="!creatingCompany && route === 'donations'">
-          <div><h1>Donations</h1><p class="muted">Coming in Phase 5.</p></div>
+          <div x-data="donations">
+
+            <!-- List view -->
+            <template x-if="view === 'list'">
+              <div>
+                <div class="page-header">
+                  <h1>Donations</h1>
+                  <button @click="startCreate">+ New Donation</button>
+                </div>
+                <div x-show="loading && !donations.length" class="muted">Loading…</div>
+                <div x-show="!loading && !donations.length" class="empty-state">No donations yet.</div>
+                <table x-show="donations.length > 0">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Donor</th>
+                      <th>Total</th>
+                      <th>Payment</th>
+                      <th>Rec.</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="don in donations" :key="don.id">
+                      <tr>
+                        <td x-text="don.date"></td>
+                        <td x-text="don.donorName || don.donorId"></td>
+                        <td x-text="formatCents(don.totalAmountCents)"></td>
+                        <td x-text="paymentMethodName(don.paymentMethodId)"></td>
+                        <td>
+                          <span x-show="don.hasReceiptable" class="badge receiptable">Yes</span>
+                          <span x-show="!don.hasReceiptable" class="badge non-receiptable">No</span>
+                        </td>
+                        <td>
+                          <div class="action-group">
+                            <template x-if="!don.locked">
+                              <button class="secondary small" @click="startEdit(don)">Edit</button>
+                            </template>
+                            <template x-if="don.locked">
+                              <span class="lock-badge" title="Locked — receipt issued">🔒</span>
+                            </template>
+                            <button class="secondary small danger" @click="archiveDonation(don)">Archive</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+                <div x-show="hasMore" class="load-more">
+                  <button class="secondary" @click="loadMore" :disabled="loading">
+                    <span x-show="!loading">Load more</span>
+                    <span x-show="loading">Loading…</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Form view -->
+            <template x-if="view === 'form'">
+              <div class="form-page">
+                <div class="page-header">
+                  <h1 x-text="formMode === 'create' ? 'New Donation' : 'Edit Donation'"></h1>
+                  <button class="secondary" @click="cancelForm">Cancel</button>
+                </div>
+
+                <!-- ── Donor ─────────────────────────────────────────── -->
+                <div class="donor-search-wrap" @click.outside="closeDonorDropdown">
+                  <label>
+                    Donor <span class="required">*</span>
+                    <input type="text" x-model="donorQuery" @input="onDonorInput"
+                           placeholder="Search by name, email, phone…"
+                           :class="{ error: formErrors.donorId }"
+                           autocomplete="off">
+                  </label>
+                  <span class="field-error" x-show="formErrors.donorId" x-text="formErrors.donorId"></span>
+
+                  <!-- Search dropdown -->
+                  <div class="donor-dropdown" x-show="showDonorDropdown">
+                    <template x-for="d in donorResults" :key="d.id">
+                      <div class="donor-dropdown-item" @click="selectDonor(d)">
+                        <span x-text="donorFullName(d)"></span>
+                        <span class="muted" x-text="d.email ? ' — ' + d.email : ''"></span>
+                      </div>
+                    </template>
+                  </div>
+
+                  <div class="donor-search-actions">
+                    <span x-show="form.donorId" class="muted donor-selected">
+                      ✓ <span x-text="form.donorName"></span>
+                    </span>
+                    <button type="button" class="link-button" @click="openNewDonorPanel"
+                            x-show="!showNewDonorPanel">
+                      + New Donor
+                    </button>
+                  </div>
+
+                  <!-- Inline new-donor panel -->
+                  <div class="new-donor-panel" x-show="showNewDonorPanel">
+                    <strong>Quick-add donor</strong>
+                    <label class="form-type-toggle" style="margin-top:.5rem">
+                      <input type="checkbox" x-model="newDonorForm.isOrg" role="switch">
+                      Organization
+                    </label>
+                    <template x-if="!newDonorForm.isOrg">
+                      <div class="form-row">
+                        <label>
+                          First Name <span class="required">*</span>
+                          <input type="text" x-model="newDonorForm.firstName"
+                                 :class="{ error: newDonorErrors.firstName }">
+                          <span class="field-error" x-show="newDonorErrors.firstName"
+                                x-text="newDonorErrors.firstName"></span>
+                        </label>
+                        <label>
+                          Last Name <span class="required">*</span>
+                          <input type="text" x-model="newDonorForm.lastName">
+                        </label>
+                      </div>
+                    </template>
+                    <template x-if="newDonorForm.isOrg">
+                      <label>
+                        Organization Name <span class="required">*</span>
+                        <input type="text" x-model="newDonorForm.orgName"
+                               :class="{ error: newDonorErrors.firstName }">
+                        <span class="field-error" x-show="newDonorErrors.firstName"
+                              x-text="newDonorErrors.firstName"></span>
+                      </label>
+                    </template>
+                    <div class="form-row">
+                      <label>Email<input type="email" x-model="newDonorForm.email"></label>
+                      <label>Phone<input type="tel" x-model="newDonorForm.phone"></label>
+                    </div>
+                    <div class="form-actions">
+                      <button @click="saveNewDonor" :disabled="savingNewDonor">
+                        <span x-show="!savingNewDonor">Add Donor</span>
+                        <span x-show="savingNewDonor">Adding…</span>
+                      </button>
+                      <button class="secondary" @click="cancelNewDonor" :disabled="savingNewDonor">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Core fields ────────────────────────────────────── -->
+                <div class="form-row" style="margin-top:1rem">
+                  <label>
+                    Date <span class="required">*</span>
+                    <input type="date" x-model="form.date" :class="{ error: formErrors.date }">
+                    <span class="field-error" x-show="formErrors.date" x-text="formErrors.date"></span>
+                  </label>
+                  <label>
+                    Total Amount <span class="required">*</span>
+                    <input type="number" step="0.01" min="0.01" x-model="form.amountDollars"
+                           placeholder="0.00" :class="{ error: formErrors.totalAmountCents }">
+                    <span class="field-error" x-show="formErrors.totalAmountCents"
+                          x-text="formErrors.totalAmountCents"></span>
+                  </label>
+                </div>
+                <div class="form-row">
+                  <label>
+                    Payment Method <span class="required">*</span>
+                    <select x-model="form.paymentMethodId" :class="{ error: formErrors.paymentMethodId }">
+                      <option value="">Select…</option>
+                      <template x-for="pm in paymentMethods" :key="pm.id">
+                        <option :value="pm.id" x-text="pm.name"></option>
+                      </template>
+                    </select>
+                    <span class="field-error" x-show="formErrors.paymentMethodId"
+                          x-text="formErrors.paymentMethodId"></span>
+                  </label>
+                  <label>
+                    Reference # (optional)
+                    <input type="text" x-model="form.referenceNumber" placeholder="Cheque #, transaction ID…">
+                  </label>
+                </div>
+                <label>
+                  Notes (optional)
+                  <textarea x-model="form.notes" rows="2" maxlength="2000"></textarea>
+                </label>
+
+                <!-- ── Allocation grid ────────────────────────────────── -->
+                <div class="alloc-section">
+                  <h3 class="alloc-heading">Allocations</h3>
+                  <p class="field-error" x-show="typeof formErrors.allocations === 'string'"
+                     x-text="formErrors.allocations"></p>
+
+                  <table class="alloc-table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Receiptable</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(alloc, idx) in form.allocations" :key="idx">
+                        <tr>
+                          <td>
+                            <select x-model="alloc.categoryId" @change="onCategoryChange(idx)"
+                                    :class="{ error: allocationErrorAt(idx, 'categoryId') }">
+                              <option value="">Select category…</option>
+                              <template x-for="cat in categories" :key="cat.id">
+                                <option :value="cat.id" x-text="cat.name"></option>
+                              </template>
+                            </select>
+                            <span class="field-error"
+                                  x-show="allocationErrorAt(idx, 'categoryId')"
+                                  x-text="allocationErrorAt(idx, 'categoryId')"></span>
+                          </td>
+                          <td>
+                            <input type="number" step="0.01" min="0.01"
+                                   x-model="alloc.amountDollars"
+                                   placeholder="0.00"
+                                   class="alloc-amount"
+                                   :class="{ error: allocationErrorAt(idx, 'amountCents') }"
+                                   @keydown.enter.prevent="idx === form.allocations.length - 1 && addRow()">
+                            <span class="field-error"
+                                  x-show="allocationErrorAt(idx, 'amountCents')"
+                                  x-text="allocationErrorAt(idx, 'amountCents')"></span>
+                          </td>
+                          <td class="alloc-rec-cell">
+                            <input type="checkbox" :checked="alloc.receiptable" disabled
+                                   :title="alloc.receiptable ? 'Receiptable (set by category)' : 'Not receiptable'">
+                          </td>
+                          <td>
+                            <button type="button" class="link-button alloc-remove"
+                                    @click="removeRow(idx)"
+                                    :disabled="form.allocations.length === 1"
+                                    title="Remove row">✕</button>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+
+                  <button type="button" class="secondary small" @click="addRow"
+                          style="margin-top:.5rem">+ Add allocation</button>
+                </div>
+
+                <!-- ── Balance bar ─────────────────────────────────────── -->
+                <div class="balance-bar" :class="{ 'balance-ok': isBalanced, 'balance-error': !isBalanced && totalCents > 0 }">
+                  <span>Allocated: <strong x-text="formatCents(allocatedCents)"></strong></span>
+                  <span class="balance-sep">/</span>
+                  <span>Total: <strong x-text="formatCents(totalCents)"></strong></span>
+                  <template x-if="!isBalanced && totalCents > 0">
+                    <span class="balance-diff">
+                      (<span x-text="differenceCents > 0 ? '+' : ''"></span><span
+                        x-text="formatCents(differenceCents)"></span>)
+                    </span>
+                  </template>
+                  <template x-if="isBalanced">
+                    <span class="balance-check">✓ Balanced</span>
+                  </template>
+                </div>
+                <span class="field-error" x-show="formErrors.balance" x-text="formErrors.balance"></span>
+
+                <!-- ── Batch mode + Save ───────────────────────────────── -->
+                <div class="form-actions" style="margin-top:1rem">
+                  <button @click="saveDonation"
+                          :disabled="saving || !isBalanced || !form.donorId">
+                    <span x-show="!saving" x-text="formMode === 'create' ? (batchMode ? 'Save &amp; Next' : 'Save Donation') : 'Save Changes'"></span>
+                    <span x-show="saving">Saving…</span>
+                  </button>
+                  <button class="secondary" @click="cancelForm" :disabled="saving">Cancel</button>
+                  <template x-if="formMode === 'create'">
+                    <label class="batch-toggle">
+                      <input type="checkbox" x-model="batchMode">
+                      Batch mode
+                    </label>
+                  </template>
+                </div>
+                <p x-show="batchMode" class="muted batch-hint">
+                  Batch mode: after saving, the date and payment method are kept. Use for entering multiple donations at once.
+                </p>
+
+              </div>
+            </template>
+
+          </div><!-- end x-data="donations" -->
         </template>
         <!-- ── Categories ──────────────────────────────────────────────── -->
         <template x-if="!creatingCompany && route === 'categories'">
