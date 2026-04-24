@@ -1,0 +1,146 @@
+rules_version = '2';
+
+// KRK Donations Firestore security rules.
+//
+// Multi-company isolation model:
+//   - Top-level `users/{uid}` and `companies/{companyId}` are global.
+//   - Everything else (donors, donations, categories, receipts, etc.) is a
+//     subcollection of `companies/{companyId}`.
+//   - A request to `companies/{companyId}/…` is allowed only when the caller's
+//     `users/{uid}.companyIds` array contains that companyId.
+//   - `users.companyIds` and company docs themselves are server-write-only;
+//     only the `createCompany` Cloud Function (Admin SDK) mutates them.
+//   - Locked donations are immutable at the rule level.
+//   - Receipts, audit log, and counters are write-only via the Admin SDK.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == "admin";
+    }
+
+    function isMemberOf(companyId) {
+      return isAdmin() && companyId in userDoc().companyIds;
+    }
+
+    function donationLocked(companyId, donationId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)/donations/$(donationId)).data.locked == true;
+    }
+
+    // --- Users -------------------------------------------------------------
+    // Callers can read their own doc. Self-bootstrap is allowed with a strict
+    // shape (role=admin, empty companyIds, null activeCompanyId). Self-update
+    // is limited to activeCompanyId, and only to a value already present in
+    // their own companyIds. Everything else about the user doc (role,
+    // companyIds, email, displayName) is server-only after bootstrap.
+    match /users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == "admin"
+        && request.resource.data.companyIds is list
+        && request.resource.data.companyIds.size() == 0
+        && request.resource.data.activeCompanyId == null
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'role', 'companyIds', 'activeCompanyId', 'createdAt'
+        ]);
+
+      // Self-update: only activeCompanyId, and only to a currently-allowed company.
+      allow update: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCompanyId'])
+        && (
+          request.resource.data.activeCompanyId == null
+          || request.resource.data.activeCompanyId in resource.data.companyIds
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Companies (registry) ---------------------------------------------
+    // Clients can only *read* companies they belong to. All writes flow
+    // through the createCompany Cloud Function (Admin SDK).
+    match /companies/{companyId} {
+      allow read: if isMemberOf(companyId);
+      allow write: if false;
+
+      // --- Per-company settings -------------------------------------------
+      match /settings/{docId} {
+        allow read, write: if isMemberOf(companyId);
+      }
+
+      // --- Donors ---------------------------------------------------------
+      match /donors/{donorId} {
+        allow read: if isMemberOf(companyId);
+        allow create, update: if isMemberOf(companyId);
+        allow delete: if false;
+      }
+
+      // --- Categories / Payment Methods -----------------------------------
+      match /categories/{categoryId} {
+        allow read: if isMemberOf(companyId);
+        allow create, update: if isMemberOf(companyId);
+        allow delete: if false;
+      }
+      match /paymentMethods/{paymentMethodId} {
+        allow read: if isMemberOf(companyId);
+        allow create, update: if isMemberOf(companyId);
+        allow delete: if false;
+      }
+
+      // --- Donations ------------------------------------------------------
+      // Create is allowed only when locked=false on the inbound doc.
+      // Update is denied when the existing doc is locked.
+      // Deletes are never allowed (soft-archive via status field in a future
+      // phase instead).
+      match /donations/{donationId} {
+        allow read: if isMemberOf(companyId);
+        allow create: if isMemberOf(companyId) && request.resource.data.locked == false;
+        allow update: if isMemberOf(companyId) && resource.data.locked == false;
+        allow delete: if false;
+
+        // Allocations under a donation: can only be written when the parent
+        // donation is unlocked.
+        match /allocations/{allocationId} {
+          allow read: if isMemberOf(companyId);
+          allow write: if isMemberOf(companyId)
+            && !donationLocked(companyId, donationId);
+        }
+      }
+
+      // --- Receipts (read-only from client) -------------------------------
+      match /receipts/{receiptId} {
+        allow read: if isMemberOf(companyId);
+        allow write: if false;
+
+        match /lineItems/{lineItemId} {
+          allow read: if isMemberOf(companyId);
+          allow write: if false;
+        }
+      }
+
+      // --- Audit log (read-only from client) ------------------------------
+      match /auditLog/{entryId} {
+        allow read: if isMemberOf(companyId);
+        allow write: if false;
+      }
+
+      // --- Counters (server-only) -----------------------------------------
+      match /counters/{docId} {
+        allow read, write: if false;
+      }
+    }
+  }
+}

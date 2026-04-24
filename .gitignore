@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build outputs
+functions/lib/
+dist/
+build/
+
+# Environment / secrets
+# NOTE: public/js/env.js is intentionally committed — Firebase web config is public by design.
+# Server-side secrets (Cloud Functions) live in Google Cloud Secret Manager, not here.
+.env
+.env.*
+!.env.example
+functions/.env
+functions/.env.*
+
+# Firebase local artifacts
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+database-debug.log
+storage-debug.log
+*.log
+
+# Service account keys — NEVER commit
+*-service-account.json
+serviceAccountKey.json
+
+# Emulator data (Firestore / Auth exports from local dev)
+emulator-data/
+
+# Organization info — sensitive, held locally only
+docs/org-info.txt
+docs/assets/logo.png
+docs/assets/signature.png
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# OS
+desktop.ini
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Coverage
+coverage/
+*.lcov

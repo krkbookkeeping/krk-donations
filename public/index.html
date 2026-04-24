@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign In — KRK Donations</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="signin-container">
+    <h1>KRK Donations</h1>
+    <p class="sub">Sign in to continue.</p>
+    <form id="signin-form">
+      <label>
+        Email
+        <input type="email" name="email" required autocomplete="username" autofocus>
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <button type="submit" id="submit-btn">Sign In</button>
+      <p id="error" class="error" hidden></p>
+    </form>
+  </main>
+
+  <script type="module">
+    import { auth } from "./js/firebase.js";
+    import {
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { $, showError, clearError } from "./js/ui.js";
+
+    // If already signed in, skip straight to the app.
+    onAuthStateChanged(auth, (user) => {
+      if (user) window.location.replace("app.html");
+    });
+
+    const form = $("#signin-form");
+    const errorEl = $("#error");
+    const btn = $("#submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearError(errorEl);
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+      try {
+        await signInWithEmailAndPassword(auth, form.email.value, form.password.value);
+        window.location.replace("app.html");
+      } catch (err) {
+        const msg = (err?.message || "Sign-in failed").replace(/^Firebase:\s*/, "");
+        showError(errorEl, msg);
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+/* KRK Donations — base styles. Layered on top of Pico.css. */
+
+:root {
+  --sidebar-width: 240px;
+  --sidebar-bg: #1f2937;
+  --sidebar-fg: #e5e7eb;
+  --sidebar-fg-muted: #9ca3af;
+  --sidebar-active-bg: #374151;
+  --sidebar-active-fg: #ffffff;
+  --topbar-bg: #ffffff;
+  --topbar-border: #e5e7eb;
+  --muted: #6b7280;
+  --error: #b91c1c;
+  --error-bg: #fef2f2;
+}
+
+body { margin: 0; }
+
+/* --- Sign-in page --------------------------------------------------- */
+
+.signin-container {
+  max-width: 360px;
+  margin: 10vh auto 0;
+  padding: 2rem;
+}
+
+.signin-container h1 {
+  margin: 0 0 0.25rem;
+}
+
+.signin-container .sub {
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.error {
+  color: var(--error);
+  background: var(--error-bg);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
+
+/* --- App shell ------------------------------------------------------ */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  color: var(--sidebar-fg);
+  padding: 1.25rem 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar .brand {
+  padding: 0 1.25rem 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  border-bottom: 1px solid #374151;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar nav a {
+  padding: 0.55rem 1.25rem;
+  color: var(--sidebar-fg);
+  text-decoration: none;
+  font-size: 0.93rem;
+  border-left: 3px solid transparent;
+}
+
+.sidebar nav a:hover {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-fg);
+}
+
+.sidebar nav a.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-fg);
+  border-left-color: #60a5fa;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+}
+
+.topbar {
+  height: 56px;
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar .company-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: auto;
+}
+
+.topbar .company-switcher .company-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.topbar .company-switcher select {
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  height: auto;
+  width: auto;
+  min-width: 180px;
+}
+
+.topbar .link-button {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  width: auto;
+  margin: 0;
+}
+.topbar .link-button:hover { text-decoration: underline; }
+
+.topbar .user-email {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.topbar button {
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  width: auto;
+}
+
+.content {
+  padding: 1.5rem 2rem;
+  flex: 1;
+}
+
+.content h1 {
+  margin-top: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* --- Onboarding (no-company state) --------------------------------- */
+
+.app-shell.onboarding {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10vh;
+  background: #f9fafb;
+}
+
+.onboarding-card {
+  max-width: 420px;
+  width: 100%;
+  padding: 2rem;
+  background: #ffffff;
+  border: 1px solid var(--topbar-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.onboarding-card h1 { margin-top: 0; font-size: 1.35rem; }
+.onboarding-card .muted { margin-bottom: 1.25rem; }
+
+/* --- Inline "create company" form inside the shell content --------- */
+
+.inline-company-form {
+  max-width: 420px;
+  padding: 1.5rem;
+  background: #ffffff;
+  border: 1px solid var(--topbar-border);
+  border-radius: 8px;
+}
+.inline-company-form h2 { margin-top: 0; font-size: 1.15rem; }
+.inline-company-form > div { display: flex; gap: 0.5rem; }
+
+/* --- Utility -------------------------------------------------------- */
+
+[hidden] { display: none !important; }

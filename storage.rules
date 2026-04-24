@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// KRK Donations Storage rules.
+//
+// Multi-company isolation: every company's assets live under
+// /companies/{companyId}/… in Storage, mirroring Firestore. Access is gated by
+// the same companyIds membership check — the caller's Firestore user doc must
+// list the companyId in its companyIds array.
+//
+// /companies/{companyId}/org/**      — logo, signature (read/write by members)
+// /companies/{companyId}/receipts/** — receipt PDFs (read-only; Cloud Functions write)
+//
+// Everything else is denied.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isMemberOf(companyId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin"
+        && companyId in firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.companyIds;
+    }
+
+    match /companies/{companyId}/org/{allPaths=**} {
+      allow read, write: if isMemberOf(companyId);
+    }
+
+    match /companies/{companyId}/receipts/{allPaths=**} {
+      allow read: if isMemberOf(companyId);
+      allow write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

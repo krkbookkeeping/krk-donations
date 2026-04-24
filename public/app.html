@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KRK Donations</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/company.js"></script>
+  <script type="module" src="js/shell.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body>
+  <!-- Onboarding: shown when the signed-in user has no companies yet. -->
+  <div class="app-shell onboarding" x-data="onboarding" x-cloak x-show="show">
+    <main class="onboarding-card">
+      <h1>Welcome to KRK Donations</h1>
+      <p class="muted">Before you can start tracking donations, create a company. You can add more later from the company switcher.</p>
+      <label>
+        Company name
+        <input type="text" x-model="name" :disabled="submitting" placeholder="e.g. Hope Community Church" maxlength="200" @keydown.enter.prevent="submit">
+      </label>
+      <p class="error" x-show="error" x-text="error"></p>
+      <button @click="submit" :disabled="submitting || !name.trim()">
+        <span x-show="!submitting">Create Company</span>
+        <span x-show="submitting">Creating…</span>
+      </button>
+    </main>
+  </div>
+
+  <!-- Main app shell: shown once the user has at least one company. -->
+  <div class="app-shell" x-data="appShell" x-cloak x-show="show">
+    <aside class="sidebar">
+      <div class="brand">KRK Donations</div>
+      <nav>
+        <a href="#/donors" :class="{ active: route === 'donors' }">Donors</a>
+        <a href="#/donations" :class="{ active: route === 'donations' }">Donations</a>
+        <a href="#/categories" :class="{ active: route === 'categories' }">Categories</a>
+        <a href="#/payment-methods" :class="{ active: route === 'payment-methods' }">Payment Methods</a>
+        <a href="#/reports" :class="{ active: route === 'reports' }">Reports</a>
+        <a href="#/receipts" :class="{ active: route === 'receipts' }">Receipts</a>
+        <a href="#/settings" :class="{ active: route === 'settings' }">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="company-switcher">
+          <template x-if="companies.length <= 1">
+            <span class="company-name" x-text="activeCompanyName"></span>
+          </template>
+          <template x-if="companies.length > 1">
+            <select @change="switchTo($event.target.value)">
+              <template x-for="c in companies" :key="c.id">
+                <option :value="c.id" :selected="c.id === activeCompanyId" x-text="c.name"></option>
+              </template>
+            </select>
+          </template>
+          <button class="link-button" @click="startNewCompany" title="Create a new company">+ New Company</button>
+        </div>
+        <span class="user-email" x-text="userEmail"></span>
+        <button class="secondary" @click="signOut">Sign Out</button>
+      </header>
+
+      <section class="content">
+        <template x-if="creatingCompany">
+          <div class="inline-company-form">
+            <h2>New Company</h2>
+            <label>
+              Company name
+              <input type="text" x-model="newCompanyName" :disabled="submittingCompany" maxlength="200" @keydown.enter.prevent="submitNewCompany">
+            </label>
+            <p class="error" x-show="newCompanyError" x-text="newCompanyError"></p>
+            <div>
+              <button @click="submitNewCompany" :disabled="submittingCompany || !newCompanyName.trim()">Create</button>
+              <button class="secondary" @click="cancelNewCompany" :disabled="submittingCompany">Cancel</button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="!creatingCompany && route === 'donors'">
+          <div><h1>Donors</h1><p class="muted">Coming in Phase 3.</p></div>
+        </template>
+        <template x-if="!creatingCompany && route === 'donations'">
+          <div><h1>Donations</h1><p class="muted">Coming in Phase 5.</p></div>
+        </template>
+        <template x-if="!creatingCompany && route === 'categories'">
+          <div><h1>Categories</h1><p class="muted">Coming in Phase 4.</p></div>
+        </template>
+        <template x-if="!creatingCompany && route === 'payment-methods'">
+          <div><h1>Payment Methods</h1><p class="muted">Coming in Phase 4.</p></div>
+        </template>
+        <template x-if="!creatingCompany && route === 'reports'">
+          <div><h1>Reports</h1><p class="muted">Coming in Phase 6.</p></div>
+        </template>
+        <template x-if="!creatingCompany && route === 'receipts'">
+          <div><h1>Receipts</h1><p class="muted">Coming in Phase 7.</p></div>
+        </template>
+        <template x-if="!creatingCompany && route === 'settings'">
+          <div><h1>Settings</h1><p class="muted">Coming in Phase 7.</p></div>
+        </template>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Hide Alpine template until it's bootstrapped.
+    const styleEl = document.createElement("style");
+    styleEl.textContent = "[x-cloak] { display: none !important; }";
+    document.head.appendChild(styleEl);
+  </script>
+</body>
+</html>
