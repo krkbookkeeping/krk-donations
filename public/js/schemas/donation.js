@@ -65,6 +65,9 @@ export function validateDonation(input, allocations) {
   value.locked = false;
   value.categoryIds = [...new Set(allocations.map((a) => a.categoryId))];
   value.hasReceiptable = allocations.some((a) => a.receiptable);
+  value.receiptableAmountCents = allocations
+    .filter((a) => a.receiptable)
+    .reduce((sum, a) => sum + a.amountCents, 0);
 
   return { ok: true, value, allocations };
 }

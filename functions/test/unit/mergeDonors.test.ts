@@ -32,7 +32,10 @@ describe("buildSearchTokens", () => {
   it("tokenizes email and phone", () => {
     const tokens = buildSearchTokens({ email: "ada@example.com", phone: "416-555-0100" });
     expect(tokens).toContain("ada@example.com");
-    expect(tokens).toContain("416-555-0100");
+    // Phone is stored as stripped digits + 4-6 char n-gram windows
+    expect(tokens).toContain("4165550100");  // full stripped digits
+    expect(tokens).toContain("0100");         // last-4 window
+    expect(tokens).toContain("550100");       // 6-char window ending in last digits
   });
 
   it("tokenizes address fields", () => {

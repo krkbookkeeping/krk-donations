@@ -7,8 +7,9 @@ rules_version = '2';
 // the same companyIds membership check — the caller's Firestore user doc must
 // list the companyId in its companyIds array.
 //
-// /companies/{companyId}/org/**      — logo, signature (read/write by members)
-// /companies/{companyId}/receipts/** — receipt PDFs (read-only; Cloud Functions write)
+// /companies/{companyId}/org/**                      — logo, signature (read/write by members)
+// /companies/{companyId}/receipts/**                 — receipt PDFs (read-only; Cloud Functions write)
+// /companies/{companyId}/donations/{donationId}/**   — donation file attachments (read/write by members)
 //
 // Everything else is denied.
 
@@ -28,6 +29,10 @@ service firebase.storage {
     match /companies/{companyId}/receipts/{allPaths=**} {
       allow read: if isMemberOf(companyId);
       allow write: if false;
+    }
+
+    match /companies/{companyId}/donations/{donationId}/{allPaths=**} {
+      allow read, write: if isMemberOf(companyId);
     }
 
     match /{allPaths=**} {

@@ -6,9 +6,17 @@
 // They are converted to integer cents via toCents() before validation and storage.
 // The balance footer and isBalanced computed property use the same conversion.
 
-import { companyCollection, companyDoc, companyReady } from "./company.js";
-import { db, auth } from "./firebase.js";
-import { validateDonation, validateDonor, donorSearchTokens } from "./schemas/index.js";
+import { companyCollection, companyDoc, companyReady, getActiveCompanyId } from "./company.js";
+import { db, auth, storage } from "./firebase.js";
+import {
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL,
+  listAll,
+  deleteObject,
+  getMetadata,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { validateDonation, validateDonor, donorSearchTokens, donorQueryTokens } from "./schemas/index.js";
 import { toCents, formatCents } from "./money.js";
 import {
   query,
@@ -59,6 +67,8 @@ document.addEventListener("alpine:init", () => {
     loading: false,
     hasMore: false,
     lastVisible: null,
+    sortBy: "date",       // "date" | "donor" | "total" | "payment" | "receiptable"
+    sortDir: "desc",      // "asc" | "desc"
 
     // ── Lookup data ───────────────────────────────────────────────────────
     categories: [],
@@ -69,6 +79,7 @@ document.addEventListener("alpine:init", () => {
     editingId: null,
     form: emptyForm(),
     formErrors: {},
+    saveError: "",
     saving: false,
     batchMode: false,
 
@@ -86,6 +97,17 @@ document.addEventListener("alpine:init", () => {
     },
     newDonorErrors: {},
     savingNewDonor: false,
+
+    // ── Attachments ───────────────────────────────────────────────────────
+    attachments: [],
+    attachmentsLoading: false,
+    uploading: false,
+    uploadProgress: 0,
+    dragOver: false,
+
+    // ── Dirty tracking + close confirmation ───────────────────────────────
+    formSnapshot: "",
+    confirmCloseOpen: false,
 
     // ─────────────────────────────────────────────────────────────────────
     // Computed helpers
@@ -171,6 +193,44 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    setSort(column) {
+      if (this.sortBy === column) {
+        this.sortDir = this.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        this.sortBy = column;
+        // Sensible default direction per column.
+        this.sortDir = (column === "donor" || column === "payment") ? "asc" : "desc";
+      }
+    },
+
+    get sortedDonations() {
+      const dir = this.sortDir === "asc" ? 1 : -1;
+      const arr = [...this.donations];
+      arr.sort((a, b) => {
+        let av, bv;
+        switch (this.sortBy) {
+          case "donor":
+            av = (a.donorName || "").toLowerCase();
+            bv = (b.donorName || "").toLowerCase();
+            return av.localeCompare(bv) * dir;
+          case "total":
+            return ((a.totalAmountCents || 0) - (b.totalAmountCents || 0)) * dir;
+          case "payment":
+            av = this.paymentMethodName(a.paymentMethodId).toLowerCase();
+            bv = this.paymentMethodName(b.paymentMethodId).toLowerCase();
+            return av.localeCompare(bv) * dir;
+          case "receiptable":
+            return ((a.hasReceiptable ? 1 : 0) - (b.hasReceiptable ? 1 : 0)) * dir;
+          case "date":
+          default:
+            av = a.date || "";
+            bv = b.date || "";
+            return av.localeCompare(bv) * dir;
+        }
+      });
+      return arr;
+    },
+
     async loadMore() {
       await this.loadDonations(true);
     },
@@ -196,7 +256,7 @@ document.addEventListener("alpine:init", () => {
     async searchDonors(q) {
       this.searchingDonors = true;
       try {
-        const tokens = q.toLowerCase().split(/\s+/).filter((t) => t.length >= 2).slice(0, 10);
+        const tokens = donorQueryTokens(q);
         if (!tokens.length) { this.donorResults = []; return; }
         // No status filter here — combining array-contains-any with ==
         // requires a composite index. Filter active donors client-side instead.
@@ -291,6 +351,12 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    onTotalAmountInput() {
+      if (this.form.allocations.length === 1) {
+        this.form.allocations[0].amountDollars = this.form.amountDollars;
+      }
+    },
+
     onCategoryChange(idx) {
       const cat = this.categoryById(this.form.allocations[idx].categoryId);
       this.form.allocations[idx].receiptable = cat?.receiptable ?? false;
@@ -306,15 +372,33 @@ document.addEventListener("alpine:init", () => {
     // Form open/close
     // ─────────────────────────────────────────────────────────────────────
     startCreate() {
-      this.formMode        = "create";
-      this.editingId       = null;
-      this.form            = emptyForm();
-      this.formErrors      = {};
-      this.donorQuery      = "";
-      this.donorResults    = [];
-      this.showDonorDropdown  = false;
-      this.showNewDonorPanel  = false;
-      this.view            = "form";
+      this.formMode = "create";
+      this.editingId = null;
+      this.form = emptyForm();
+      this.formErrors = {};
+      this.saveError = "";
+      this.donorQuery = "";
+      this.donorResults = [];
+      this.showDonorDropdown = false;
+      this.showNewDonorPanel = false;
+      this.attachments = [];
+      this.view = "form";
+
+      // Apply defaults after the next render tick so that x-model bindings
+      // and x-for option elements are fully established before we write to them.
+      this.$nextTick(() => {
+        const norm = (s) => s.toLowerCase().replace(/[\s\-]/g, "");
+        const defPm = this.paymentMethods.find((p) => norm(p.name) === "etransfer");
+        if (defPm) this.form.paymentMethodId = defPm.id;
+
+        const defCat = this.categories.find((c) => c.name.toLowerCase() === "general donation");
+        if (defCat) {
+          this.form.allocations[0].categoryId  = defCat.id;
+          this.form.allocations[0].receiptable = defCat.receiptable ?? false;
+        }
+
+        this.takeFormSnapshot();
+      });
     },
 
     async startEdit(donation) {
@@ -322,6 +406,7 @@ document.addEventListener("alpine:init", () => {
       this.formMode  = "edit";
       this.editingId = donation.id;
       this.formErrors = {};
+      this.saveError = "";
       this.showNewDonorPanel = false;
 
       // Load allocations subcollection.
@@ -339,34 +424,65 @@ document.addEventListener("alpine:init", () => {
         } catch (_) {}
       }
 
-      this.form = {
-        donorId:         donation.donorId || "",
-        donorName:       dname,
-        date:            donation.date || today(),
-        amountDollars:   donation.totalAmountCents
-                           ? (donation.totalAmountCents / 100).toFixed(2)
-                           : "",
-        paymentMethodId: donation.paymentMethodId || "",
-        referenceNumber: donation.referenceNumber || "",
-        notes:           donation.notes || "",
-        allocations:     allocs.length > 0
-          ? allocs.map((a) => ({
-              _id:          a._id,
-              categoryId:   a.categoryId || "",
-              amountDollars: a.amountCents
-                              ? (a.amountCents / 100).toFixed(2)
-                              : "",
-              receiptable:  a.receiptable ?? false,
-            }))
-          : [emptyAllocation()],
-      };
-      this.donorQuery = dname;
+      // Reset to a clean reactive form, then show the view. The form
+      // template renders with empty values so x-model bindings (and the
+      // x-for option lists inside each <select>) are fully wired up
+      // before any non-empty values are written. We then populate via
+      // $nextTick — this fixes a timing issue where assigning a
+      // pre-populated form object in the same tick as switching view
+      // would leave selects in a broken binding state and silently
+      // discard subsequent user edits.
+      this.form = emptyForm();
+      this.donorQuery = "";
       this.donorResults = [];
       this.showDonorDropdown = false;
+      this.attachments = [];
       this.view = "form";
+
+      this.$nextTick(() => {
+        this.form.donorId         = donation.donorId || "";
+        this.form.donorName       = dname;
+        this.form.date            = donation.date || today();
+        this.form.amountDollars   = donation.totalAmountCents
+                                      ? (donation.totalAmountCents / 100).toFixed(2)
+                                      : "";
+        this.form.paymentMethodId = donation.paymentMethodId || "";
+        this.form.referenceNumber = donation.referenceNumber || "";
+        this.form.notes           = donation.notes || "";
+        this.donorQuery           = dname;
+
+        if (allocs.length > 0) {
+          // Build allocations with empty categoryIds first; setting a
+          // non-empty categoryId on a select before its <option> list
+          // has rendered silently fails (same timing trap as above).
+          this.form.allocations = allocs.map((a) => ({
+            _id:           a._id,
+            categoryId:    "",
+            amountDollars: a.amountCents
+                             ? (a.amountCents / 100).toFixed(2)
+                             : "",
+            receiptable:   a.receiptable ?? false,
+          }));
+
+          // Once the rows (and their inner x-for option lists) are
+          // mounted, write categoryIds. Alpine's reactive x-model
+          // effects then set each <select> to the correct option.
+          this.$nextTick(() => {
+            for (let i = 0; i < allocs.length; i++) {
+              this.form.allocations[i].categoryId = allocs[i].categoryId || "";
+            }
+            this.takeFormSnapshot();
+          });
+        } else {
+          this.takeFormSnapshot();
+        }
+      });
+
+      await this.loadAttachments();
     },
 
     cancelForm() {
+      this.attachments = [];
       this.view = "list";
     },
 
@@ -375,9 +491,11 @@ document.addEventListener("alpine:init", () => {
     // ─────────────────────────────────────────────────────────────────────
     async saveDonation() {
       this.formErrors = {};
+      this.saveError = "";
 
       if (!this.form.donorId) {
         this.formErrors.donorId = "Select a donor.";
+        this.saveError = "Please fix the errors above before saving.";
         return;
       }
 
@@ -399,7 +517,11 @@ document.addEventListener("alpine:init", () => {
         },
         allocInputs
       );
-      if (!result.ok) { this.formErrors = result.errors; return; }
+      if (!result.ok) {
+        this.formErrors = result.errors;
+        this.saveError = "Please fix the errors above before saving.";
+        return;
+      }
 
       this.saving = true;
       try {
@@ -462,9 +584,13 @@ document.addEventListener("alpine:init", () => {
           this.donorQuery    = "";
           this.donorResults  = [];
           this.showDonorDropdown = false;
+          this.$nextTick(() => this.takeFormSnapshot());
         } else {
           this.view = "list";
         }
+      } catch (err) {
+        const msg = err?.message || String(err);
+        this.saveError = `Save failed: ${msg}`;
       } finally {
         this.saving = false;
       }
@@ -479,6 +605,119 @@ document.addEventListener("alpine:init", () => {
         updatedAt: serverTimestamp(),
       });
       this.donations = this.donations.filter((d) => d.id !== donation.id);
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Attachments
+    // ─────────────────────────────────────────────────────────────────────
+    async loadAttachments() {
+      if (!this.editingId) return;
+      this.attachmentsLoading = true;
+      try {
+        const folder = storageRef(storage, `companies/${getActiveCompanyId()}/donations/${this.editingId}`);
+        const list = await listAll(folder);
+        const items = await Promise.all(list.items.map(async (item) => {
+          const [url, meta] = await Promise.all([getDownloadURL(item), getMetadata(item)]);
+          return { name: item.name, url, path: item.fullPath, size: meta.size, contentType: meta.contentType };
+        }));
+        this.attachments = items;
+      } catch (_) {
+        this.attachments = [];
+      } finally {
+        this.attachmentsLoading = false;
+      }
+    },
+
+    handleFiles(fileList) {
+      for (const file of fileList) this.uploadFile(file);
+    },
+
+    async uploadFile(file) {
+      if (!file || !this.editingId) return;
+      this.uploading = true;
+      try {
+        const fileRef = storageRef(storage, `companies/${getActiveCompanyId()}/donations/${this.editingId}/${file.name}`);
+        await new Promise((resolve, reject) => {
+          const task = uploadBytesResumable(fileRef, file, { contentType: file.type });
+          task.on("state_changed",
+            (snap) => { this.uploadProgress = Math.round((snap.bytesTransferred / snap.totalBytes) * 100); },
+            reject,
+            resolve,
+          );
+        });
+        await this.loadAttachments();
+      } catch (err) {
+        this.saveError = `Upload failed: ${err?.message || "unknown error"}`;
+      } finally {
+        this.uploading = false;
+        this.uploadProgress = 0;
+      }
+    },
+
+    onFileInput(event) {
+      const files = Array.from(event.target.files || []);
+      if (files.length) this.handleFiles(files);
+      event.target.value = "";
+    },
+
+    onPaste(event) {
+      if (this.formMode !== "edit") return;
+      const items = Array.from(event.clipboardData?.items || []);
+      const files = items.filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
+      if (files.length) { event.preventDefault(); this.handleFiles(files); }
+    },
+
+    async deleteAttachment(item) {
+      if (!confirm(`Delete "${item.name}"?`)) return;
+      try {
+        await deleteObject(storageRef(storage, item.path));
+        this.attachments = this.attachments.filter((a) => a.path !== item.path);
+      } catch (err) {
+        this.saveError = `Delete failed: ${err?.message || "unknown error"}`;
+      }
+    },
+
+    formatFileSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1048576).toFixed(1)} MB`;
+    },
+
+    isImage(contentType) {
+      return contentType?.startsWith("image/") ?? false;
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Dirty tracking + ESC-to-close with save/discard prompt
+    // ─────────────────────────────────────────────────────────────────────
+    takeFormSnapshot() {
+      this.formSnapshot = JSON.stringify(this.form);
+    },
+
+    isFormDirty() {
+      return JSON.stringify(this.form) !== this.formSnapshot;
+    },
+
+    onEscape() {
+      if (this.view !== "form") return;
+      // Close any open subordinate UI first.
+      if (this.confirmCloseOpen) { this.confirmCloseOpen = false; return; }
+      if (this.showDonorDropdown) { this.showDonorDropdown = false; return; }
+      if (this.showNewDonorPanel) { this.showNewDonorPanel = false; return; }
+      if (this.isFormDirty()) {
+        this.confirmCloseOpen = true;
+      } else {
+        this.cancelForm();
+      }
+    },
+
+    async confirmCloseAction(action) {
+      this.confirmCloseOpen = false;
+      if (action === "save") {
+        await this.saveDonation();
+      } else if (action === "discard") {
+        this.cancelForm();
+      }
     },
   }));
 });

@@ -13,6 +13,10 @@
   <script type="module" src="js/donations.js"></script>
   <script type="module" src="js/categories.js"></script>
   <script type="module" src="js/paymentMethods.js"></script>
+  <script type="module" src="js/reports.js"></script>
+  <script type="module" src="js/settings.js"></script>
+  <script type="module" src="js/receipts.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -253,26 +257,28 @@
                   </label>
                 </div>
 
-                <template x-if="!form.isOrg">
-                  <div class="form-row">
-                    <label>
-                      First Name <span class="required">*</span>
-                      <input type="text" x-model="form.firstName" :class="{ error: formErrors.firstName }">
-                      <span class="field-error" x-show="formErrors.firstName" x-text="formErrors.firstName"></span>
-                    </label>
-                    <label>
-                      Last Name <span class="required">*</span>
-                      <input type="text" x-model="form.lastName">
-                    </label>
-                  </div>
-                </template>
                 <template x-if="form.isOrg">
                   <label>
                     Organization Name <span class="required">*</span>
-                    <input type="text" x-model="form.orgName" :class="{ error: formErrors.firstName }">
-                    <span class="field-error" x-show="formErrors.firstName" x-text="formErrors.firstName"></span>
+                    <input type="text" x-model="form.orgName" :class="{ error: formErrors.orgName }">
+                    <span class="field-error" x-show="formErrors.orgName" x-text="formErrors.orgName"></span>
                   </label>
                 </template>
+
+                <div class="form-row">
+                  <label>
+                    First Name <span class="required" x-show="!form.isOrg">*</span>
+                    <input type="text" x-model="form.firstName" :class="{ error: formErrors.firstName }"
+                           :placeholder="form.isOrg ? 'Contact first name (optional)' : ''">
+                    <span class="field-error" x-show="formErrors.firstName" x-text="formErrors.firstName"></span>
+                  </label>
+                  <label>
+                    Last Name <span class="required" x-show="!form.isOrg">*</span>
+                    <input type="text" x-model="form.lastName" :class="{ error: formErrors.lastName }"
+                           :placeholder="form.isOrg ? 'Contact last name (optional)' : ''">
+                    <span class="field-error" x-show="formErrors.lastName" x-text="formErrors.lastName"></span>
+                  </label>
+                </div>
 
                 <div class="form-row">
                   <label>
@@ -287,14 +293,14 @@
                   </label>
                 </div>
 
-                <details>
+                <details open>
                   <summary>Address</summary>
                   <div style="margin-top:.5rem">
                     <label>Address line 1<input type="text" x-model="form.address.line1"></label>
                     <label>Address line 2<input type="text" x-model="form.address.line2"></label>
                     <div class="form-row">
                       <label>City<input type="text" x-model="form.address.city"></label>
-                      <label>Province<input type="text" x-model="form.address.province" maxlength="2" placeholder="ON"></label>
+                      <label>Province<input type="text" x-model="form.address.province" maxlength="2" placeholder="AB"></label>
                     </div>
                     <div class="form-row">
                       <label>Postal code<input type="text" x-model="form.address.postalCode"></label>
@@ -441,16 +447,36 @@
                 <table x-show="donations.length > 0">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>Donor</th>
-                      <th>Total</th>
-                      <th>Payment</th>
-                      <th>Rec.</th>
+                      <th class="sortable" @click="setSort('date')">
+                        Date
+                        <span class="sort-indicator" x-show="sortBy === 'date'"
+                              x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
+                      </th>
+                      <th class="sortable" @click="setSort('donor')">
+                        Donor
+                        <span class="sort-indicator" x-show="sortBy === 'donor'"
+                              x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
+                      </th>
+                      <th class="sortable" @click="setSort('total')">
+                        Total
+                        <span class="sort-indicator" x-show="sortBy === 'total'"
+                              x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
+                      </th>
+                      <th class="sortable" @click="setSort('payment')">
+                        Payment
+                        <span class="sort-indicator" x-show="sortBy === 'payment'"
+                              x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
+                      </th>
+                      <th class="sortable" @click="setSort('receiptable')">
+                        Rec.
+                        <span class="sort-indicator" x-show="sortBy === 'receiptable'"
+                              x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
+                      </th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody>
-                    <template x-for="don in donations" :key="don.id">
+                    <template x-for="don in sortedDonations" :key="don.id">
                       <tr>
                         <td x-text="don.date"></td>
                         <td x-text="don.donorName || don.donorId"></td>
@@ -486,7 +512,7 @@
 
             <!-- Form view -->
             <template x-if="view === 'form'">
-              <div class="form-page">
+              <div class="form-page" @paste.window="onPaste($event)" @keydown.escape.window="onEscape()">
                 <div class="page-header">
                   <h1 x-text="formMode === 'create' ? 'New Donation' : 'Edit Donation'"></h1>
                   <button class="secondary" @click="cancelForm">Cancel</button>
@@ -578,7 +604,8 @@
                   <label>
                     Total Amount <span class="required">*</span>
                     <input type="number" step="0.01" min="0.01" x-model="form.amountDollars"
-                           placeholder="0.00" :class="{ error: formErrors.totalAmountCents }">
+                           placeholder="0.00" :class="{ error: formErrors.totalAmountCents }"
+                           @input="onTotalAmountInput">
                     <span class="field-error" x-show="formErrors.totalAmountCents"
                           x-text="formErrors.totalAmountCents"></span>
                   </label>
@@ -681,6 +708,55 @@
                   </template>
                 </div>
                 <span class="field-error" x-show="formErrors.balance" x-text="formErrors.balance"></span>
+                <p class="save-error-banner" x-show="saveError" x-text="saveError"></p>
+
+                <!-- ── Attachments (edit mode only) ──────────────────────── -->
+                <div class="attach-section" x-show="formMode === 'edit'">
+                  <h3 class="attach-heading">Attachments</h3>
+
+                  <!-- Drop zone -->
+                  <div class="attach-dropzone"
+                       :class="{ 'drag-over': dragOver }"
+                       @dragover.prevent="dragOver = true"
+                       @dragleave.prevent="dragOver = false"
+                       @drop.prevent="dragOver = false; handleFiles(Array.from($event.dataTransfer.files))">
+                    <p class="attach-hint">
+                      Drop files here, paste from clipboard, or
+                      <label class="attach-browse-label">
+                        browse
+                        <input type="file" multiple class="attach-file-input" @change="onFileInput($event)">
+                      </label>
+                    </p>
+                    <p class="attach-upload-status" x-show="uploading">
+                      Uploading… <span x-text="uploadProgress + '%'"></span>
+                    </p>
+                    <p class="attach-loading" x-show="attachmentsLoading && !uploading">Loading attachments…</p>
+                  </div>
+
+                  <!-- Attachment list -->
+                  <ul class="attach-list" x-show="attachments.length > 0">
+                    <template x-for="att in attachments" :key="att.path">
+                      <li class="attach-item">
+                        <div class="attach-thumb-wrap">
+                          <img x-show="isImage(att.contentType)" :src="att.url" class="attach-thumb" :alt="att.name">
+                          <span x-show="!isImage(att.contentType)" class="attach-icon">📄</span>
+                        </div>
+                        <div class="attach-meta">
+                          <a :href="att.url" target="_blank" rel="noopener" x-text="att.name" class="attach-name"></a>
+                          <span class="attach-size muted" x-text="formatFileSize(att.size)"></span>
+                        </div>
+                        <button type="button" class="link-button attach-delete danger"
+                                @click="deleteAttachment(att)" title="Delete">✕</button>
+                      </li>
+                    </template>
+                  </ul>
+                  <p class="muted attach-empty" x-show="!attachmentsLoading && !uploading && attachments.length === 0">
+                    No attachments yet.
+                  </p>
+                </div>
+                <p class="muted attach-create-note" x-show="formMode === 'create'" style="font-size:0.85em; margin-top:1rem;">
+                  Save the donation first, then open it to add attachments.
+                </p>
 
                 <!-- ── Batch mode + Save ───────────────────────────────── -->
                 <div class="form-actions" style="margin-top:1rem">
@@ -700,6 +776,27 @@
                 <p x-show="batchMode" class="muted batch-hint">
                   Batch mode: after saving, the date and payment method are kept. Use for entering multiple donations at once.
                 </p>
+
+                <!-- ── Save-changes confirm modal (shown on ESC with unsaved edits) -->
+                <div class="modal-backdrop" x-show="confirmCloseOpen" x-cloak
+                     @click="confirmCloseOpen = false">
+                  <div class="modal" @click.stop>
+                    <h3>Save changes?</h3>
+                    <p class="muted">You have unsaved changes to this donation.</p>
+                    <div class="modal-actions">
+                      <button type="button" @click="confirmCloseAction('save')" :disabled="saving">
+                        <span x-show="!saving">Save Changes</span>
+                        <span x-show="saving">Saving…</span>
+                      </button>
+                      <button type="button" class="secondary" @click="confirmCloseAction('discard')" :disabled="saving">
+                        Discard
+                      </button>
+                      <button type="button" class="secondary outline" @click="confirmCloseOpen = false" :disabled="saving">
+                        Keep Editing
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
               </div>
             </template>
@@ -871,13 +968,536 @@
           </div><!-- end x-data="paymentMethods" -->
         </template>
         <template x-if="!creatingCompany && route === 'reports'">
-          <div><h1>Reports</h1><p class="muted">Coming in Phase 6.</p></div>
+          <div x-data="reports">
+
+            <div class="page-header">
+              <h1>Reports</h1>
+            </div>
+
+            <!-- ── Report type tabs ──────────────────────────────────── -->
+            <div class="report-tabs">
+              <button :class="{ active: reportType === 'transaction' }"
+                      @click="switchReport('transaction')">Transaction Report</button>
+              <button :class="{ active: reportType === 'summary' }"
+                      @click="switchReport('summary')">Yearly Summary</button>
+            </div>
+
+            <!-- ══ Transaction Report ════════════════════════════════════ -->
+            <template x-if="reportType === 'transaction'">
+              <div>
+                <!-- Filters -->
+                <div class="report-filters">
+
+                  <!-- Period -->
+                  <div class="filter-group">
+                    <span class="filter-label">Period</span>
+                    <div class="filter-row">
+                      <select x-model="filterDateMode" style="width:auto">
+                        <option value="year">Calendar year</option>
+                        <option value="custom">Custom range</option>
+                      </select>
+                      <template x-if="filterDateMode === 'year'">
+                        <select x-model.number="filterYear" style="width:auto">
+                          <template x-for="y in yearOptions" :key="y">
+                            <option :value="y" x-text="y"></option>
+                          </template>
+                        </select>
+                      </template>
+                      <template x-if="filterDateMode === 'custom'">
+                        <div class="form-row" style="margin:0;gap:.5rem">
+                          <label style="margin:0">From <input type="date" x-model="filterDateFrom"></label>
+                          <label style="margin:0">To <input type="date" x-model="filterDateTo"></label>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Categories -->
+                  <div class="filter-group" x-show="categories.length > 0">
+                    <span class="filter-label">
+                      Categories
+                      <span class="filter-count" x-show="filterCategories.length > 0"
+                            x-text="`(${filterCategories.length} selected)`"></span>
+                    </span>
+                    <div class="filter-checks">
+                      <label class="check-item">
+                        <input type="checkbox"
+                               :checked="filterCategories.length === 0"
+                               @click.prevent="selectAllCategories()">
+                        <span><strong>All</strong></span>
+                      </label>
+                      <template x-for="cat in categories" :key="cat.id">
+                        <label class="check-item">
+                          <input type="checkbox" :value="cat.id" x-model="filterCategories">
+                          <span x-text="cat.name"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Payment Methods -->
+                  <div class="filter-group" x-show="paymentMethods.length > 0">
+                    <span class="filter-label">
+                      Payment Methods
+                      <span class="filter-count" x-show="filterPaymentMethods.length > 0"
+                            x-text="`(${filterPaymentMethods.length} selected)`"></span>
+                    </span>
+                    <div class="filter-checks">
+                      <template x-for="pm in paymentMethods" :key="pm.id">
+                        <label class="check-item">
+                          <input type="checkbox" :value="pm.id" x-model="filterPaymentMethods">
+                          <span x-text="pm.name"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Receiptable status -->
+                  <div class="filter-group">
+                    <span class="filter-label">Receiptable Status</span>
+                    <div class="filter-radios">
+                      <label><input type="radio" x-model="filterReceiptable" value="all"> All</label>
+                      <label><input type="radio" x-model="filterReceiptable" value="yes"> Receiptable only</label>
+                      <label><input type="radio" x-model="filterReceiptable" value="no"> Non-receiptable only</label>
+                    </div>
+                  </div>
+
+                  <!-- Donor filter -->
+                  <div class="filter-group">
+                    <span class="filter-label">Donor</span>
+                    <template x-if="filterDonorId">
+                      <div class="donor-selected-tag">
+                        <span x-text="filterDonorName"></span>
+                        <button class="link-button" @click="clearDonor" title="Clear">✕</button>
+                      </div>
+                    </template>
+                    <template x-if="!filterDonorId">
+                      <div class="donor-search-wrap" @click.outside="showDonorDropdown = false">
+                        <input type="text" x-model="filterDonorQuery" @input="onDonorInput"
+                               placeholder="All donors — type to filter">
+                        <div class="donor-dropdown" x-show="showDonorDropdown">
+                          <template x-for="d in donorResults" :key="d.id">
+                            <div class="donor-dropdown-item" @click="selectDonor(d)">
+                              <span x-text="donorFullName(d)"></span>
+                              <span class="muted" x-text="d.email ? ' — ' + d.email : ''"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+
+                  <div class="form-actions">
+                    <button @click="runReport" :disabled="reportLoading">
+                      <span x-show="!reportLoading">Run Report</span>
+                      <span x-show="reportLoading">Loading…</span>
+                    </button>
+                    <button class="secondary" @click="reset">Reset Filters</button>
+                  </div>
+                </div><!-- end .report-filters -->
+
+                <!-- Results -->
+                <template x-if="reportRun">
+                  <div class="report-results">
+                    <div class="report-results-header">
+                      <span class="muted"
+                            x-text="`${transactionRows.length} donation${transactionRows.length !== 1 ? 's' : ''}`"></span>
+                      <button class="secondary small" @click="exportTransactionCSV"
+                              x-show="transactionRows.length > 0">Export CSV</button>
+                    </div>
+
+                    <p class="muted" x-show="transactionRows.length === 0">
+                      No donations match the selected filters.
+                    </p>
+
+                    <template x-if="transactionRows.length > 0">
+                      <div class="report-table-wrap"><table class="report-table">
+                        <thead>
+                          <tr>
+                            <th class="sortable" @click="setTransactionSort('date')">
+                              Date
+                              <span class="sort-indicator" x-show="transactionSortBy === 'date'"
+                                    x-text="transactionSortDir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                            <th class="sortable" @click="setTransactionSort('donor')">
+                              Donor
+                              <span class="sort-indicator" x-show="transactionSortBy === 'donor'"
+                                    x-text="transactionSortDir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                            <th>Email</th>
+                            <th>Address</th>
+                            <th>City</th>
+                            <th>Prov.</th>
+                            <th>Postal</th>
+                            <th class="num sortable" @click="setTransactionSort('total')">
+                              Total
+                              <span class="sort-indicator" x-show="transactionSortBy === 'total'"
+                                    x-text="transactionSortDir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                            <th>Categories</th>
+                            <th class="num">Receiptable</th>
+                            <th>Payment</th>
+                            <th>Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="row in sortedTransactionRows" :key="row.id">
+                            <tr>
+                              <td x-text="row.date"></td>
+                              <td x-text="row.donorName || '—'"></td>
+                              <td x-text="row.donorEmail || ''"></td>
+                              <td x-text="row.address?.line1 || ''"></td>
+                              <td x-text="row.address?.city || ''"></td>
+                              <td x-text="row.address?.province || ''"></td>
+                              <td x-text="row.address?.postalCode || ''"></td>
+                              <td class="num" x-text="formatCents(row.totalAmountCents)"></td>
+                              <td x-text="categoryNamesForRow(row.categoryIds)"></td>
+                              <td class="num" x-text="formatCents(row.receiptableAmountCents || 0)"></td>
+                              <td x-text="paymentMethodName(row.paymentMethodId)"></td>
+                              <td x-text="row.notes || ''"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colspan="7"><strong>Total</strong></td>
+                            <td class="num"><strong x-text="formatCents(transactionTotal)"></strong></td>
+                            <td></td>
+                            <td class="num"><strong x-text="formatCents(transactionReceiptableTotal)"></strong></td>
+                            <td colspan="2"></td>
+                          </tr>
+                        </tfoot>
+                      </table></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template><!-- end transaction -->
+
+            <!-- ══ Yearly Summary ════════════════════════════════════════ -->
+            <template x-if="reportType === 'summary'">
+              <div>
+                <div class="report-filters">
+                  <div class="filter-group">
+                    <span class="filter-label">Year</span>
+                    <select x-model.number="filterYear" style="width:auto">
+                      <template x-for="y in yearOptions" :key="y">
+                        <option :value="y" x-text="y"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="form-actions">
+                    <button @click="runReport" :disabled="reportLoading">
+                      <span x-show="!reportLoading">Run Report</span>
+                      <span x-show="reportLoading">Loading…</span>
+                    </button>
+                  </div>
+                </div>
+
+                <template x-if="reportRun">
+                  <div class="report-results">
+                    <div class="report-results-header">
+                      <span class="muted"
+                            x-text="`${summaryRows.length} donor${summaryRows.length !== 1 ? 's' : ''}, ${summaryDonationCount} donation${summaryDonationCount !== 1 ? 's' : ''}`"></span>
+                      <button class="secondary small" @click="exportSummaryCSV"
+                              x-show="summaryRows.length > 0">Export CSV</button>
+                    </div>
+
+                    <p class="muted" x-show="summaryRows.length === 0">
+                      No donations found for <span x-text="filterYear"></span>.
+                    </p>
+
+                    <template x-if="summaryRows.length > 0">
+                      <div class="report-table-wrap"><table class="report-table">
+                        <thead>
+                          <tr>
+                            <th class="sortable" @click="setSummarySort('donor')">
+                              Donor
+                              <span class="sort-indicator" x-show="summarySortBy === 'donor'"
+                                    x-text="summarySortDir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                            <th>Email</th>
+                            <th>Address</th>
+                            <th>City</th>
+                            <th>Prov.</th>
+                            <th>Postal</th>
+                            <th class="num"># Donations</th>
+                            <th class="num sortable" @click="setSummarySort('total')">
+                              Total
+                              <span class="sort-indicator" x-show="summarySortBy === 'total'"
+                                    x-text="summarySortDir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                            <th class="num">Receiptable</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="row in sortedSummaryRows" :key="row.donorId">
+                            <tr>
+                              <td x-text="row.donorName"></td>
+                              <td x-text="row.donorEmail || ''"></td>
+                              <td x-text="row.address?.line1 || ''"></td>
+                              <td x-text="row.address?.city || ''"></td>
+                              <td x-text="row.address?.province || ''"></td>
+                              <td x-text="row.address?.postalCode || ''"></td>
+                              <td class="num" x-text="row.count"></td>
+                              <td class="num" x-text="formatCents(row.totalCents)"></td>
+                              <td class="num" x-text="formatCents(row.receiptableCents)"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colspan="6"><strong>Total</strong></td>
+                            <td class="num"><strong x-text="summaryDonationCount"></strong></td>
+                            <td class="num"><strong x-text="formatCents(summaryTotal)"></strong></td>
+                            <td class="num"><strong x-text="formatCents(summaryReceiptableTotal)"></strong></td>
+                          </tr>
+                        </tfoot>
+                      </table></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template><!-- end summary -->
+
+          </div><!-- end x-data="reports" -->
         </template>
         <template x-if="!creatingCompany && route === 'receipts'">
-          <div><h1>Receipts</h1><p class="muted">Coming in Phase 7.</p></div>
+          <div x-data="receipts">
+            <div class="page-header">
+              <h1>Receipts</h1>
+              <div style="display:flex;align-items:center;gap:.75rem">
+                <label style="margin:0;font-size:.9rem;display:flex;align-items:center;gap:.4rem">
+                  Year
+                  <select x-model.number="filterYear" @change="loadData()" style="width:auto;margin:0">
+                    <template x-for="y in yearOptions" :key="y">
+                      <option :value="y" x-text="y"></option>
+                    </template>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <!-- Settings incomplete warning -->
+            <div x-show="!settingsReady">
+              <div class="warning-card">
+                <strong>Organization settings incomplete.</strong>
+                Receipts cannot be generated until your legal name and CRA charity number are configured in
+                <a href="#/settings">Settings</a>.
+              </div>
+            </div>
+
+            <div x-show="settingsReady">
+                <p class="save-success-banner" x-show="successMessage" x-text="successMessage"></p>
+                <p class="save-error-banner"   x-show="errorMessage"   x-text="errorMessage"></p>
+
+                <!-- Tabs -->
+                <div class="receipt-tabs">
+                  <button type="button" :class="{ active: activeTab === 'pending' }" @click="activeTab = 'pending'">
+                    Pending
+                    <span class="tab-count" x-show="pendingDonors.length > 0"
+                          x-text="`(${pendingDonors.length})`"></span>
+                  </button>
+                  <button type="button" :class="{ active: activeTab === 'issued' }" @click="activeTab = 'issued'">
+                    Issued
+                  </button>
+                </div>
+
+                <!-- Pending tab -->
+                <div x-show="activeTab === 'pending'">
+                  <div x-show="pendingLoading" class="muted">Loading…</div>
+                  <div x-show="!pendingLoading && pendingDonors.length === 0" class="empty-state">
+                    No unlocked receiptable donations for <span x-text="filterYear"></span>.
+                  </div>
+                  <table x-show="pendingDonors.length > 0">
+                    <thead>
+                      <tr>
+                        <th>Donor</th>
+                        <th class="num"># Donations</th>
+                        <th class="num">Receiptable Amount</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="donor in pendingDonors" :key="donor.donorId">
+                        <tr>
+                          <td x-text="donor.donorName"></td>
+                          <td class="num" x-text="donor.count"></td>
+                          <td class="num" x-text="formatCents(donor.totalReceiptableCents)"></td>
+                          <td>
+                            <button type="button" class="small"
+                                    @click="generateReceipt(donor.donorId)"
+                                    :disabled="!!generating[donor.donorId]">
+                              <span x-show="!generating[donor.donorId]">Generate Receipt</span>
+                              <span x-show="generating[donor.donorId]">Generating…</span>
+                            </button>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Issued tab -->
+                <div x-show="activeTab === 'issued'">
+                  <div x-show="receiptsLoading" class="muted">Loading…</div>
+                  <div x-show="!receiptsLoading && issuedReceipts.length === 0" class="empty-state">
+                    No receipts issued for <span x-text="filterYear"></span>.
+                  </div>
+                  <table x-show="issuedReceipts.length > 0">
+                    <thead>
+                      <tr>
+                        <th>Receipt #</th>
+                        <th>Donor</th>
+                        <th>Date Issued</th>
+                        <th class="num">Amount</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="receipt in issuedReceipts" :key="receipt.id">
+                        <tr>
+                          <td x-text="receipt.receiptNumber"></td>
+                          <td x-text="receipt.donorName"></td>
+                          <td x-text="formatDate(receipt.issuedAt)"></td>
+                          <td class="num" x-text="formatCents(receipt.totalReceiptableAmountCents)"></td>
+                          <td><span class="badge" :class="receipt.status" x-text="receipt.status"></span></td>
+                          <td>
+                            <div class="action-group">
+                              <button type="button" class="secondary small" @click="downloadReceipt(receipt)">Download PDF</button>
+                              <button type="button" class="secondary small danger"
+                                      x-show="receipt.status === 'issued'"
+                                      @click="voidReceipt(receipt)">Void</button>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div><!-- end issued tab -->
+
+            </div><!-- end x-show="settingsReady" -->
+          </div><!-- end x-data="receipts" -->
         </template>
         <template x-if="!creatingCompany && route === 'settings'">
-          <div><h1>Settings</h1><p class="muted">Coming in Phase 7.</p></div>
+          <div x-data="settings">
+            <div class="page-header">
+              <h1>Settings</h1>
+            </div>
+
+            <div x-show="loading" class="muted">Loading…</div>
+
+            <template x-if="!loading">
+              <div class="settings-form">
+
+                <div class="settings-section">
+                  <div class="settings-section-title">Organization</div>
+                  <div class="settings-card">
+                    <div class="form-row">
+                      <label>
+                        Legal Name <span class="required">*</span>
+                        <input type="text" x-model="form.legalName"
+                               :class="{ error: formErrors.legalName }" maxlength="200">
+                        <span class="field-error" x-show="formErrors.legalName"
+                              x-text="formErrors.legalName"></span>
+                      </label>
+                      <label>
+                        CRA Charity Registration # <span class="required">*</span>
+                        <input type="text" x-model="form.charityNumber"
+                               :class="{ error: formErrors.charityNumber }"
+                               placeholder="123456789 RR 0001">
+                        <span class="field-error" x-show="formErrors.charityNumber"
+                              x-text="formErrors.charityNumber"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-title">Mailing Address</div>
+                  <div class="settings-card">
+                    <label>Address Line 1<input type="text" x-model="form.address.line1"></label>
+                    <label>Address Line 2<input type="text" x-model="form.address.line2"></label>
+                    <div class="form-row">
+                      <label>City<input type="text" x-model="form.address.city"></label>
+                      <label>Province<input type="text" x-model="form.address.province"
+                               maxlength="2" placeholder="ON"></label>
+                    </div>
+                    <div class="form-row">
+                      <label>Postal Code<input type="text" x-model="form.address.postalCode"></label>
+                      <label>Country<input type="text" x-model="form.address.country"></label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-title">Authorized Signatory</div>
+                  <div class="settings-card">
+                    <div class="form-row">
+                      <label>
+                        Name
+                        <input type="text" x-model="form.signatory.name">
+                      </label>
+                      <label>
+                        Title
+                        <input type="text" x-model="form.signatory.title"
+                               placeholder="Executive Director">
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-title">Authorized Signature</div>
+                  <div class="settings-card">
+                    <p class="muted" style="font-size:.88rem;margin-bottom:.75rem">
+                      Upload an image of your signature (PNG or JPEG). It will appear on all generated receipts.
+                      Keep the image under 200KB for best results.
+                    </p>
+                    <div x-show="form.signatureUrl" class="signature-preview-wrap">
+                      <img :src="form.signatureUrl" alt="Signature preview" class="signature-preview">
+                      <button type="button" class="secondary small danger" @click="clearSignature"
+                              style="margin-top:.5rem">Remove Signature</button>
+                    </div>
+                    <div x-show="!form.signatureUrl">
+                      <input type="file" accept="image/png,image/jpeg"
+                             @change="onSignatureFileChange($event)" style="margin:0">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-title">Receipt Template</div>
+                  <div class="settings-card">
+                    <label>
+                      Header Text
+                      <input type="text" x-model="form.receiptTemplate.headerText" maxlength="200">
+                    </label>
+                    <label>
+                      Body Text
+                      <textarea x-model="form.receiptTemplate.bodyText" rows="3" maxlength="2000"></textarea>
+                    </label>
+                    <label>
+                      Footer Text <span class="muted" style="font-weight:400">(optional)</span>
+                      <textarea x-model="form.receiptTemplate.footerText" rows="2" maxlength="2000"></textarea>
+                    </label>
+                  </div>
+                </div>
+
+                <p class="save-error-banner" x-show="saveError" x-text="saveError"></p>
+
+                <div class="form-actions">
+                  <button @click="saveSettings" :disabled="saving">
+                    <span x-show="!saving">Save Settings</span>
+                    <span x-show="saving">Saving…</span>
+                  </button>
+                  <span class="settings-saved" x-show="saved">Settings saved.</span>
+                </div>
+
+              </div>
+            </template>
+          </div><!-- end x-data="settings" -->
         </template>
       </section>
     </div>

@@ -112,11 +112,17 @@ service cloud.firestore {
         allow delete: if false;
 
         // Allocations under a donation: can only be written when the parent
-        // donation is unlocked.
+        // donation is unlocked. We also allow writes when the parent doesn't
+        // exist yet — that happens during a batched create where the donation
+        // and its allocations are committed together (Firestore evaluates each
+        // write against the pre-commit state, so the parent isn't visible yet).
         match /allocations/{allocationId} {
           allow read: if isMemberOf(companyId);
           allow write: if isMemberOf(companyId)
-            && !donationLocked(companyId, donationId);
+            && (
+              !exists(/databases/$(database)/documents/companies/$(companyId)/donations/$(donationId))
+              || !donationLocked(companyId, donationId)
+            );
         }
       }
 

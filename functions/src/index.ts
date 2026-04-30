@@ -3,10 +3,11 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { validateCompany } from "./shared/schemas/validators";
 import { mergeDonors } from "./mergeDonors";
+import { generateReceipt, voidReceipt } from "./generateReceipt";
 
 initializeApp();
 
-export { mergeDonors };
+export { mergeDonors, generateReceipt, voidReceipt };
 
 // All callables are pinned to Toronto for data-residency alignment with the
 // Firestore (northamerica-northeast2) database.

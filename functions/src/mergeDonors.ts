@@ -134,23 +134,51 @@ export async function runMerge(
 }
 
 export function buildSearchTokens(donor: Record<string, unknown>): string[] {
-  const addr = donor.address as Record<string, unknown> | null | undefined;
-  const parts = [
-    donor.firstName,
-    donor.lastName,
-    donor.orgName,
-    donor.email,
-    donor.phone,
-    addr?.line1,
-    addr?.city,
-    addr?.postalCode,
-  ].filter(Boolean);
   const tokens = new Set<string>();
-  for (const p of parts) {
-    for (const t of String(p).toLowerCase().split(/\s+/)) {
+
+  function addWords(str: unknown) {
+    if (!str) return;
+    for (const t of String(str).toLowerCase().split(/\s+/)) {
       if (t.length >= 2) tokens.add(t);
     }
   }
+
+  function addNgrams(str: unknown, minLen: number, maxLen: number) {
+    if (!str) return;
+    const norm = String(str).toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (norm.length < minLen) return;
+    for (let len = minLen; len <= Math.min(maxLen, norm.length); len++) {
+      for (let i = 0; i <= norm.length - len; i++) {
+        tokens.add(norm.slice(i, i + len));
+      }
+    }
+  }
+
+  addWords(donor.firstName);
+  addWords(donor.lastName);
+  addWords(donor.orgName);
+  addWords(donor.email);
+
+  if (donor.phone) {
+    const digits = String(donor.phone).replace(/\D/g, "");
+    if (digits.length >= 2) tokens.add(digits);
+    addNgrams(digits, 4, 6);
+  }
+
+  const addr = donor.address as Record<string, unknown> | null | undefined;
+  if (addr) {
+    addWords(addr.city);
+    addWords(addr.postalCode);
+    if (addr.line1) {
+      addWords(addr.line1);
+      addNgrams(addr.line1, 3, 6);
+    }
+    if (addr.line2) {
+      addWords(addr.line2);
+      addNgrams(addr.line2, 3, 6);
+    }
+  }
+
   return [...tokens];
 }
 

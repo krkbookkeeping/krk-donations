@@ -11,8 +11,8 @@ import {
   companyReady,
   getActiveCompanyId,
 } from "./company.js";
-import { functions } from "./firebase.js";
-import { validateDonor, donorSearchTokens } from "./schemas/index.js";
+import { functions, db } from "./firebase.js";
+import { validateDonor, donorSearchTokens, donorQueryTokens } from "./schemas/index.js";
 import { formatCents } from "./money.js";
 import {
   collection,
@@ -26,6 +26,7 @@ import {
   addDoc,
   updateDoc,
   serverTimestamp,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
@@ -57,7 +58,7 @@ function emptyForm() {
   return {
     firstName: "", lastName: "", orgName: "",
     email: "", phone: "",
-    address: { line1: "", line2: "", city: "", province: "", postalCode: "", country: "Canada" },
+    address: { line1: "", line2: "", city: "", province: "AB", postalCode: "", country: "Canada" },
     preferredContact: "any",
     notes: "",
     isOrg: false,
@@ -109,10 +110,38 @@ document.addEventListener("alpine:init", () => {
     async init() {
       await companyReady;
       await this.loadDonors();
+      this.reindexDonors(); // fire-and-forget background re-index
       window.addEventListener("krk:companyChanged", async () => {
         this.reset();
         await this.loadDonors();
+        this.reindexDonors();
       });
+    },
+
+    // Silently regenerate searchTokens for any donor whose tokens are stale
+    // (i.e. were created before n-gram support was added). Runs in the
+    // background so it never blocks the UI.
+    async reindexDonors() {
+      try {
+        const snap = await getDocs(companyCollection("donors"));
+        const batch = writeBatch(db);
+        let n = 0;
+        for (const d of snap.docs) {
+          const data = d.data();
+          const fresh = donorSearchTokens(data);
+          const current = data.searchTokens ?? [];
+          const needsUpdate =
+            fresh.length !== current.length ||
+            fresh.some((t) => !current.includes(t));
+          if (needsUpdate) {
+            batch.update(d.ref, { searchTokens: fresh });
+            if (++n >= 499) break;
+          }
+        }
+        if (n > 0) await batch.commit();
+      } catch (_) {
+        // Non-critical — search still works with old tokens
+      }
     },
 
     reset() {
@@ -132,8 +161,7 @@ document.addEventListener("alpine:init", () => {
       try {
         let q;
         if (this.searchQuery.trim()) {
-          const tokens = donorSearchTokens({ firstName: this.searchQuery, lastName: this.searchQuery })
-            .slice(0, 10);
+          const tokens = donorQueryTokens(this.searchQuery);
           if (!tokens.length) { this.donors = []; return; }
           q = query(companyCollection("donors"),
             where("searchTokens", "array-contains-any", tokens),
@@ -241,10 +269,10 @@ document.addEventListener("alpine:init", () => {
         phone: s.phone || "",
         address: s.address
           ? { ...s.address }
-          : { line1: "", line2: "", city: "", province: "", postalCode: "", country: "Canada" },
+          : { line1: "", line2: "", city: "", province: "AB", postalCode: "", country: "Canada" },
         preferredContact: s.preferredContact || "any",
         notes: s.notes || "",
-        isOrg: !!s.orgName && !s.firstName,
+        isOrg: !!s.orgName,
       };
       this.formErrors = {};
       this.duplicates = [];
@@ -259,8 +287,8 @@ document.addEventListener("alpine:init", () => {
     async saveDonor() {
       this.formErrors = {};
       const input = {
-        firstName: this.form.isOrg ? "" : this.form.firstName,
-        lastName: this.form.isOrg ? "" : this.form.lastName,
+        firstName: this.form.firstName,
+        lastName: this.form.lastName,
         orgName: this.form.isOrg ? this.form.orgName : "",
         email: this.form.email,
         phone: this.form.phone,
@@ -270,7 +298,17 @@ document.addEventListener("alpine:init", () => {
         status: "active",
       };
       const result = validateDonor(input);
-      if (!result.ok) { this.formErrors = result.errors; return; }
+      if (!result.ok) {
+        this.formErrors = { ...result.errors };
+        // The validator surfaces "either a name or an org name is required" on
+        // errors.firstName. In org mode that error belongs on the orgName field.
+        if (this.form.isOrg && !this.form.orgName.trim()
+            && this.formErrors.firstName?.includes("required")) {
+          this.formErrors.orgName = "Organization name is required.";
+          delete this.formErrors.firstName;
+        }
+        return;
+      }
 
       // Duplicate detection (skip if user already acknowledged).
       if (!this.ignoreDuplicates) {
