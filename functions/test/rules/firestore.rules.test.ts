@@ -1,7 +1,7 @@
 // Firestore rules emulator tests — multi-company edition.
 // Run with: npm run test:rules (requires Firebase CLI and starts the emulator).
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, beforeAll, afterAll, beforeEach } from "vitest";
 import {
   initializeTestEnvironment,
   assertFails,
