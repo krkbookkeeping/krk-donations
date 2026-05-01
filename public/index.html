@@ -42,6 +42,20 @@
     const errorEl = $("#error");
     const btn = $("#submit-btn");
 
+    // Firebase returns codes like "auth/invalid-credential". Map the ones a user
+    // can actually act on; fall through to a generic message for everything else.
+    const AUTH_ERROR_MESSAGES = {
+      "auth/invalid-email": "Please enter a valid email address.",
+      "auth/missing-password": "Please enter your password.",
+      "auth/invalid-credential": "Invalid login. Check your email and password.",
+      "auth/invalid-login-credentials": "Invalid login. Check your email and password.",
+      "auth/user-not-found": "Invalid login. Check your email and password.",
+      "auth/wrong-password": "Invalid login. Check your email and password.",
+      "auth/user-disabled": "This account has been disabled. Contact your administrator.",
+      "auth/too-many-requests": "Too many failed attempts. Wait a few minutes and try again.",
+      "auth/network-request-failed": "Network error. Check your connection and try again.",
+    };
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       clearError(errorEl);
@@ -51,7 +65,7 @@
         await signInWithEmailAndPassword(auth, form.email.value, form.password.value);
         window.location.replace("app.html");
       } catch (err) {
-        const msg = (err?.message || "Sign-in failed").replace(/^Firebase:\s*/, "");
+        const msg = AUTH_ERROR_MESSAGES[err?.code] || "Sign-in failed. Please try again.";
         showError(errorEl, msg);
         btn.disabled = false;
         btn.removeAttribute("aria-busy");
