@@ -610,3 +610,90 @@ th.sortable:hover { background-color: #f3f4f6; }
   flex-wrap: wrap;
 }
 .modal-actions button { margin: 0; }
+
+/* ── Report results header (Print + Export buttons row) ────────────────── */
+.report-results-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Print column-selection modal ──────────────────────────────────────── */
+.print-modal { max-width: 560px; }
+.print-column-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 1.25rem;
+  margin: 0.25rem 0 1rem;
+}
+.print-column-checks .check-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  margin: 0;
+  cursor: pointer;
+}
+.print-column-checks .check-item input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+/* ── Print-only blocks (hidden on screen, shown only when printing) ────── */
+.print-only { display: none; }
+.print-report-header h1 { margin: 0 0 0.6rem; font-size: 1.5rem; }
+.print-filters { margin: 0 0 0.6rem; font-size: 0.95rem; line-height: 1.5; }
+.print-filters > div { margin: 0; }
+.print-sort { margin: 0.5rem 0 0.75rem; font-size: 0.95rem; }
+.print-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  font-size: 1rem;
+}
+
+/* ── Print mode ────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide page shell + non-report UI */
+  .topbar,
+  .sidebar,
+  nav,
+  .page-header,
+  .report-tabs,
+  .report-filters,
+  .report-results-header,
+  .no-print,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  /* Reveal print-only blocks */
+  .print-only { display: block !important; }
+  .print-totals { display: flex !important; }
+
+  /* Hide columns the user un-checked */
+  .print-hide-col { display: none !important; }
+
+  /* Hide the on-screen tfoot (replaced by .print-totals below the table) */
+  .report-table tfoot { display: none !important; }
+
+  /* Strip interactive affordances */
+  .sort-indicator { display: none !important; }
+  th.sortable { background-color: transparent !important; cursor: default !important; }
+
+  /* Make tables paper-friendly */
+  body { background: white !important; }
+  .report-table-wrap { overflow: visible !important; }
+  .report-table { font-size: 10pt; width: 100%; min-width: 0; }
+  .report-table th,
+  .report-table td {
+    padding: 0.25rem 0.4rem;
+    white-space: normal;
+  }
+
+  /* Repeat the table header on every page */
+  .report-table thead { display: table-header-group; }
+
+  @page { size: auto; margin: 0.5in; }
+}

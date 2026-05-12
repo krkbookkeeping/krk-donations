@@ -86,6 +86,22 @@ document.addEventListener("alpine:init", () => {
     summarySortBy: "donor",      // "donor" | "total"
     summarySortDir: "asc",       // "asc" | "desc"
 
+    // ── Print ─────────────────────────────────────────────────────────────
+    showPrintModal: false,
+    printColumns: {
+      transaction: {
+        date: true, donor: true, email: false, address: false,
+        city: false, province: false, postalCode: false,
+        total: true, categories: true, receiptable: true,
+        payment: false, notes: false,
+      },
+      summary: {
+        donor: true, email: false, address: false,
+        city: false, province: false, postalCode: false,
+        count: true, total: true, receiptable: true,
+      },
+    },
+
     // ── Donor search ──────────────────────────────────────────────────────
     donorResults: [],
     showDonorDropdown: false,
@@ -129,6 +145,52 @@ document.addEventListener("alpine:init", () => {
 
     get summaryDonationCount() {
       return this.summaryRows.reduce((s, r) => s + r.count, 0);
+    },
+
+    // ── Print-header labels ───────────────────────────────────────────────
+    get printDateLabel() {
+      if (this.filterDateMode === "year") return `Calendar year ${this.filterYear}`;
+      const f = this.filterDateFrom || "—";
+      const t = this.filterDateTo || "—";
+      return `From ${f} to ${t}`;
+    },
+
+    get printCategoriesLabel() {
+      if (this.filterCategories.length === 0) return "All categories";
+      const names = this.filterCategories
+        .map((id) => this.categories.find((c) => c.id === id)?.name)
+        .filter(Boolean);
+      return names.length ? names.join(", ") : "All categories";
+    },
+
+    get printPaymentMethodsLabel() {
+      if (this.filterPaymentMethods.length === 0) return "All payment methods";
+      const names = this.filterPaymentMethods
+        .map((id) => this.paymentMethods.find((p) => p.id === id)?.name)
+        .filter(Boolean);
+      return names.length ? names.join(", ") : "All payment methods";
+    },
+
+    get printReceiptableLabel() {
+      if (this.filterReceiptable === "yes") return "Receiptable only";
+      if (this.filterReceiptable === "no") return "Non-receiptable only";
+      return "All";
+    },
+
+    get printDonorLabel() {
+      return this.filterDonorId ? this.filterDonorName : "All donors";
+    },
+
+    get printTransactionSortLabel() {
+      const col = { date: "Date", donor: "Donor", total: "Total" }[this.transactionSortBy] || "Date";
+      const dir = this.transactionSortDir === "asc" ? "ascending" : "descending";
+      return `${col}, ${dir}`;
+    },
+
+    get printSummarySortLabel() {
+      const col = { donor: "Donor", total: "Total" }[this.summarySortBy] || "Donor";
+      const dir = this.summarySortDir === "asc" ? "ascending" : "descending";
+      return `${col}, ${dir}`;
     },
 
     setTransactionSort(column) {
@@ -408,6 +470,23 @@ document.addEventListener("alpine:init", () => {
         (r.receiptableCents / 100).toFixed(2),
       ]);
       csvDownload(`yearly-summary-${this.filterYear}.csv`, headers, rows);
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Print
+    // ─────────────────────────────────────────────────────────────────────
+    openPrintModal() {
+      this.showPrintModal = true;
+    },
+
+    closePrintModal() {
+      this.showPrintModal = false;
+    },
+
+    triggerPrint() {
+      this.showPrintModal = false;
+      // Let Alpine apply the column-visibility classes before invoking print().
+      this.$nextTick(() => window.print());
     },
 
     // ─────────────────────────────────────────────────────────────────────
