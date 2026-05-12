@@ -70,6 +70,17 @@ document.addEventListener("alpine:init", () => {
     sortBy: "date",       // "date" | "donor" | "total" | "payment" | "receiptable"
     sortDir: "desc",      // "asc" | "desc"
 
+    // ── Filters (client-side over loaded rows) ────────────────────────────
+    filter: {
+      dateFrom: "",
+      dateTo: "",
+      donor: "",
+      totalMin: "",
+      totalMax: "",
+      paymentMethodId: "",
+      receiptable: "all", // "all" | "yes" | "no"
+    },
+
     // ── Lookup data ───────────────────────────────────────────────────────
     categories: [],
     paymentMethods: [],
@@ -203,9 +214,45 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    clearFilters() {
+      this.filter.dateFrom = "";
+      this.filter.dateTo = "";
+      this.filter.donor = "";
+      this.filter.totalMin = "";
+      this.filter.totalMax = "";
+      this.filter.paymentMethodId = "";
+      this.filter.receiptable = "all";
+    },
+
+    get hasActiveFilters() {
+      const f = this.filter;
+      return Boolean(
+        f.dateFrom || f.dateTo || f.donor || f.totalMin || f.totalMax ||
+        f.paymentMethodId || f.receiptable !== "all"
+      );
+    },
+
     get sortedDonations() {
+      const f = this.filter;
+      const donorQ = f.donor.trim().toLowerCase();
+      const minCents = f.totalMin === "" ? null : Math.round(parseFloat(f.totalMin) * 100);
+      const maxCents = f.totalMax === "" ? null : Math.round(parseFloat(f.totalMax) * 100);
+
+      const filtered = this.donations.filter((d) => {
+        if (f.dateFrom && (d.date || "") < f.dateFrom) return false;
+        if (f.dateTo   && (d.date || "") > f.dateTo)   return false;
+        if (donorQ && !(d.donorName || "").toLowerCase().includes(donorQ)) return false;
+        const cents = d.totalAmountCents || 0;
+        if (minCents !== null && !Number.isNaN(minCents) && cents < minCents) return false;
+        if (maxCents !== null && !Number.isNaN(maxCents) && cents > maxCents) return false;
+        if (f.paymentMethodId && d.paymentMethodId !== f.paymentMethodId) return false;
+        if (f.receiptable === "yes" && !d.hasReceiptable) return false;
+        if (f.receiptable === "no"  &&  d.hasReceiptable) return false;
+        return true;
+      });
+
       const dir = this.sortDir === "asc" ? 1 : -1;
-      const arr = [...this.donations];
+      const arr = [...filtered];
       arr.sort((a, b) => {
         let av, bv;
         switch (this.sortBy) {

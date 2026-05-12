@@ -518,6 +518,36 @@ button.small { padding: 0.3rem 0.7rem; font-size: 0.82rem; }
 /* Display-column toggle (on-screen view). Print toggle lives under @media print. */
 .display-hide-col { display: none !important; }
 
+/* ── Donations list filter bar ─────────────────────────────────────────── */
+.donations-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+}
+.donations-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.82rem;
+}
+.donations-filters input,
+.donations-filters select {
+  margin: 0;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.82rem;
+  height: auto;
+  min-height: 0;
+}
+.donations-filters input[type="date"] { width: auto; }
+.donations-filters .filter-donor-input { width: 160px; }
+.donations-filters .filter-money-input { width: 80px; }
+.donations-filters select { width: auto; }
+.donations-filters button { margin: 0; }
+
 /* ── Phase 7: Settings ─────────────────────────────────────────────────── */
 .settings-form { max-width: 720px; }
 .settings-section { margin-bottom: 1.75rem; }
