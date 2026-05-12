@@ -110,7 +110,8 @@
                 </div>
                 <div x-show="loading && !donors.length" class="muted">Loading…</div>
                 <div x-show="!loading && !donors.length" class="empty-state">No donors found.</div>
-                <table x-show="donors.length > 0">
+                <div class="report-table-wrap" x-show="donors.length > 0">
+                  <table class="report-table">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -129,7 +130,8 @@
                       </tr>
                     </template>
                   </tbody>
-                </table>
+                  </table>
+                </div>
                 <div x-show="hasMore" class="load-more">
                   <button class="secondary" @click="loadMore" :disabled="loading">
                     <span x-show="!loading">Load more</span>
@@ -845,7 +847,8 @@
                 </div>
                 <div x-show="loading && !categories.length" class="muted">Loading…</div>
                 <div x-show="!loading && !categories.length" class="empty-state">No categories found.</div>
-                <table x-show="categories.length > 0">
+                <div class="report-table-wrap" x-show="categories.length > 0">
+                  <table class="report-table">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -877,7 +880,8 @@
                       </tr>
                     </template>
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
             </template>
 
@@ -939,7 +943,8 @@
                 </div>
                 <div x-show="loading && !items.length" class="muted">Loading…</div>
                 <div x-show="!loading && !items.length" class="empty-state">No payment methods found.</div>
-                <table x-show="items.length > 0">
+                <div class="report-table-wrap" x-show="items.length > 0">
+                  <table class="report-table">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -966,7 +971,8 @@
                       </tr>
                     </template>
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
             </template>
 
@@ -1485,7 +1491,8 @@
                   <div x-show="!pendingLoading && pendingDonors.length === 0" class="empty-state">
                     No unlocked receiptable donations for <span x-text="filterYear"></span>.
                   </div>
-                  <table x-show="pendingDonors.length > 0">
+                  <div class="report-table-wrap" x-show="pendingDonors.length > 0">
+                    <table class="report-table">
                     <thead>
                       <tr>
                         <th>Donor</th>
@@ -1511,7 +1518,8 @@
                         </tr>
                       </template>
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
 
                 <!-- Issued tab -->
@@ -1520,7 +1528,8 @@
                   <div x-show="!receiptsLoading && issuedReceipts.length === 0" class="empty-state">
                     No receipts issued for <span x-text="filterYear"></span>.
                   </div>
-                  <table x-show="issuedReceipts.length > 0">
+                  <div class="report-table-wrap" x-show="issuedReceipts.length > 0">
+                    <table class="report-table">
                     <thead>
                       <tr>
                         <th>Receipt #</th>
@@ -1550,7 +1559,8 @@
                         </tr>
                       </template>
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div><!-- end issued tab -->
 
             </div><!-- end x-show="settingsReady" -->
