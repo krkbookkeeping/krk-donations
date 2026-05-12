@@ -1013,7 +1013,7 @@
                   </div>
 
                   <!-- Categories -->
-                  <div class="filter-group" x-show="categories.length > 0">
+                  <div class="filter-group filter-group--separated" x-show="categories.length > 0">
                     <span class="filter-label">
                       Categories
                       <span class="filter-count" x-show="filterCategories.length > 0"
@@ -1036,7 +1036,7 @@
                   </div>
 
                   <!-- Payment Methods -->
-                  <div class="filter-group" x-show="paymentMethods.length > 0">
+                  <div class="filter-group filter-group--separated" x-show="paymentMethods.length > 0">
                     <span class="filter-label">
                       Payment Methods
                       <span class="filter-count" x-show="filterPaymentMethods.length > 0"
@@ -1053,7 +1053,7 @@
                   </div>
 
                   <!-- Receiptable status -->
-                  <div class="filter-group">
+                  <div class="filter-group filter-group--separated">
                     <span class="filter-label">Receiptable Status</span>
                     <div class="filter-radios">
                       <label><input type="radio" x-model="filterReceiptable" value="all"> All</label>
@@ -1103,6 +1103,8 @@
                       <span class="muted"
                             x-text="`${transactionRows.length} donation${transactionRows.length !== 1 ? 's' : ''}`"></span>
                       <div class="report-results-actions">
+                        <button class="secondary small" @click="openDisplayColumnsModal"
+                                x-show="transactionRows.length > 0">Columns</button>
                         <button class="secondary small" @click="openPrintModal"
                                 x-show="transactionRows.length > 0">Print</button>
                         <button class="secondary small" @click="exportTransactionCSV"
@@ -1134,49 +1136,49 @@
                         <thead>
                           <tr>
                             <th class="sortable" @click="setTransactionSort('date')"
-                                :class="{ 'print-hide-col': !printColumns.transaction.date }">
+                                :class="{ 'print-hide-col': !printColumns.transaction.date, 'display-hide-col': !displayColumns.transaction.date }">
                               Date
                               <span class="sort-indicator" x-show="transactionSortBy === 'date'"
                                     x-text="transactionSortDir === 'asc' ? '▲' : '▼'"></span>
                             </th>
                             <th class="sortable" @click="setTransactionSort('donor')"
-                                :class="{ 'print-hide-col': !printColumns.transaction.donor }">
+                                :class="{ 'print-hide-col': !printColumns.transaction.donor, 'display-hide-col': !displayColumns.transaction.donor }">
                               Donor
                               <span class="sort-indicator" x-show="transactionSortBy === 'donor'"
                                     x-text="transactionSortDir === 'asc' ? '▲' : '▼'"></span>
                             </th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.email }">Email</th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.address }">Address</th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.city }">City</th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.province }">Prov.</th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.postalCode }">Postal</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.email, 'display-hide-col': !displayColumns.transaction.email }">Email</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.address, 'display-hide-col': !displayColumns.transaction.address }">Address</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.city, 'display-hide-col': !displayColumns.transaction.city }">City</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.province, 'display-hide-col': !displayColumns.transaction.province }">Prov.</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.postalCode, 'display-hide-col': !displayColumns.transaction.postalCode }">Postal</th>
                             <th class="num sortable" @click="setTransactionSort('total')"
-                                :class="{ 'print-hide-col': !printColumns.transaction.total }">
+                                :class="{ 'print-hide-col': !printColumns.transaction.total, 'display-hide-col': !displayColumns.transaction.total }">
                               Total
                               <span class="sort-indicator" x-show="transactionSortBy === 'total'"
                                     x-text="transactionSortDir === 'asc' ? '▲' : '▼'"></span>
                             </th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.categories }">Categories</th>
-                            <th class="num" :class="{ 'print-hide-col': !printColumns.transaction.receiptable }">Receiptable</th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.payment }">Payment</th>
-                            <th :class="{ 'print-hide-col': !printColumns.transaction.notes }">Notes</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.categories, 'display-hide-col': !displayColumns.transaction.categories }">Categories</th>
+                            <th class="num" :class="{ 'print-hide-col': !printColumns.transaction.receiptable, 'display-hide-col': !displayColumns.transaction.receiptable }">Receiptable</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.payment, 'display-hide-col': !displayColumns.transaction.payment }">Payment</th>
+                            <th :class="{ 'print-hide-col': !printColumns.transaction.notes, 'display-hide-col': !displayColumns.transaction.notes }">Notes</th>
                           </tr>
                         </thead>
                         <tbody>
                           <template x-for="row in sortedTransactionRows" :key="row.id">
                             <tr>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.date }" x-text="row.date"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.donor }" x-text="row.donorName || '—'"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.email }" x-text="row.donorEmail || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.address }" x-text="row.address?.line1 || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.city }" x-text="row.address?.city || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.province }" x-text="row.address?.province || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.postalCode }" x-text="row.address?.postalCode || ''"></td>
-                              <td class="num" :class="{ 'print-hide-col': !printColumns.transaction.total }" x-text="formatCents(row.totalAmountCents)"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.categories }" x-text="categoryNamesForRow(row.categoryIds)"></td>
-                              <td class="num" :class="{ 'print-hide-col': !printColumns.transaction.receiptable }" x-text="formatCents(row.receiptableAmountCents || 0)"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.payment }" x-text="paymentMethodName(row.paymentMethodId)"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.transaction.notes }" x-text="row.notes || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.date, 'display-hide-col': !displayColumns.transaction.date }" x-text="row.date"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.donor, 'display-hide-col': !displayColumns.transaction.donor }" x-text="row.donorName || '—'"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.email, 'display-hide-col': !displayColumns.transaction.email }" x-text="row.donorEmail || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.address, 'display-hide-col': !displayColumns.transaction.address }" x-text="row.address?.line1 || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.city, 'display-hide-col': !displayColumns.transaction.city }" x-text="row.address?.city || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.province, 'display-hide-col': !displayColumns.transaction.province }" x-text="row.address?.province || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.postalCode, 'display-hide-col': !displayColumns.transaction.postalCode }" x-text="row.address?.postalCode || ''"></td>
+                              <td class="num" :class="{ 'print-hide-col': !printColumns.transaction.total, 'display-hide-col': !displayColumns.transaction.total }" x-text="formatCents(row.totalAmountCents)"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.categories, 'display-hide-col': !displayColumns.transaction.categories }" x-text="categoryNamesForRow(row.categoryIds)"></td>
+                              <td class="num" :class="{ 'print-hide-col': !printColumns.transaction.receiptable, 'display-hide-col': !displayColumns.transaction.receiptable }" x-text="formatCents(row.receiptableAmountCents || 0)"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.payment, 'display-hide-col': !displayColumns.transaction.payment }" x-text="paymentMethodName(row.paymentMethodId)"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.transaction.notes, 'display-hide-col': !displayColumns.transaction.notes }" x-text="row.notes || ''"></td>
                             </tr>
                           </template>
                         </tbody>
@@ -1228,6 +1230,8 @@
                       <span class="muted"
                             x-text="`${summaryRows.length} donor${summaryRows.length !== 1 ? 's' : ''}, ${summaryDonationCount} donation${summaryDonationCount !== 1 ? 's' : ''}`"></span>
                       <div class="report-results-actions">
+                        <button class="secondary small" @click="openDisplayColumnsModal"
+                                x-show="summaryRows.length > 0">Columns</button>
                         <button class="secondary small" @click="openPrintModal"
                                 x-show="summaryRows.length > 0">Print</button>
                         <button class="secondary small" @click="exportSummaryCSV"
@@ -1257,38 +1261,38 @@
                         <thead>
                           <tr>
                             <th class="sortable" @click="setSummarySort('donor')"
-                                :class="{ 'print-hide-col': !printColumns.summary.donor }">
+                                :class="{ 'print-hide-col': !printColumns.summary.donor, 'display-hide-col': !displayColumns.summary.donor }">
                               Donor
                               <span class="sort-indicator" x-show="summarySortBy === 'donor'"
                                     x-text="summarySortDir === 'asc' ? '▲' : '▼'"></span>
                             </th>
-                            <th :class="{ 'print-hide-col': !printColumns.summary.email }">Email</th>
-                            <th :class="{ 'print-hide-col': !printColumns.summary.address }">Address</th>
-                            <th :class="{ 'print-hide-col': !printColumns.summary.city }">City</th>
-                            <th :class="{ 'print-hide-col': !printColumns.summary.province }">Prov.</th>
-                            <th :class="{ 'print-hide-col': !printColumns.summary.postalCode }">Postal</th>
-                            <th class="num" :class="{ 'print-hide-col': !printColumns.summary.count }"># Donations</th>
+                            <th :class="{ 'print-hide-col': !printColumns.summary.email, 'display-hide-col': !displayColumns.summary.email }">Email</th>
+                            <th :class="{ 'print-hide-col': !printColumns.summary.address, 'display-hide-col': !displayColumns.summary.address }">Address</th>
+                            <th :class="{ 'print-hide-col': !printColumns.summary.city, 'display-hide-col': !displayColumns.summary.city }">City</th>
+                            <th :class="{ 'print-hide-col': !printColumns.summary.province, 'display-hide-col': !displayColumns.summary.province }">Prov.</th>
+                            <th :class="{ 'print-hide-col': !printColumns.summary.postalCode, 'display-hide-col': !displayColumns.summary.postalCode }">Postal</th>
+                            <th class="num" :class="{ 'print-hide-col': !printColumns.summary.count, 'display-hide-col': !displayColumns.summary.count }"># Donations</th>
                             <th class="num sortable" @click="setSummarySort('total')"
-                                :class="{ 'print-hide-col': !printColumns.summary.total }">
+                                :class="{ 'print-hide-col': !printColumns.summary.total, 'display-hide-col': !displayColumns.summary.total }">
                               Total
                               <span class="sort-indicator" x-show="summarySortBy === 'total'"
                                     x-text="summarySortDir === 'asc' ? '▲' : '▼'"></span>
                             </th>
-                            <th class="num" :class="{ 'print-hide-col': !printColumns.summary.receiptable }">Receiptable</th>
+                            <th class="num" :class="{ 'print-hide-col': !printColumns.summary.receiptable, 'display-hide-col': !displayColumns.summary.receiptable }">Receiptable</th>
                           </tr>
                         </thead>
                         <tbody>
                           <template x-for="row in sortedSummaryRows" :key="row.donorId">
                             <tr>
-                              <td :class="{ 'print-hide-col': !printColumns.summary.donor }" x-text="row.donorName"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.summary.email }" x-text="row.donorEmail || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.summary.address }" x-text="row.address?.line1 || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.summary.city }" x-text="row.address?.city || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.summary.province }" x-text="row.address?.province || ''"></td>
-                              <td :class="{ 'print-hide-col': !printColumns.summary.postalCode }" x-text="row.address?.postalCode || ''"></td>
-                              <td class="num" :class="{ 'print-hide-col': !printColumns.summary.count }" x-text="row.count"></td>
-                              <td class="num" :class="{ 'print-hide-col': !printColumns.summary.total }" x-text="formatCents(row.totalCents)"></td>
-                              <td class="num" :class="{ 'print-hide-col': !printColumns.summary.receiptable }" x-text="formatCents(row.receiptableCents)"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.summary.donor, 'display-hide-col': !displayColumns.summary.donor }" x-text="row.donorName"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.summary.email, 'display-hide-col': !displayColumns.summary.email }" x-text="row.donorEmail || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.summary.address, 'display-hide-col': !displayColumns.summary.address }" x-text="row.address?.line1 || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.summary.city, 'display-hide-col': !displayColumns.summary.city }" x-text="row.address?.city || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.summary.province, 'display-hide-col': !displayColumns.summary.province }" x-text="row.address?.province || ''"></td>
+                              <td :class="{ 'print-hide-col': !printColumns.summary.postalCode, 'display-hide-col': !displayColumns.summary.postalCode }" x-text="row.address?.postalCode || ''"></td>
+                              <td class="num" :class="{ 'print-hide-col': !printColumns.summary.count, 'display-hide-col': !displayColumns.summary.count }" x-text="row.count"></td>
+                              <td class="num" :class="{ 'print-hide-col': !printColumns.summary.total, 'display-hide-col': !displayColumns.summary.total }" x-text="formatCents(row.totalCents)"></td>
+                              <td class="num" :class="{ 'print-hide-col': !printColumns.summary.receiptable, 'display-hide-col': !displayColumns.summary.receiptable }" x-text="formatCents(row.receiptableCents)"></td>
                             </tr>
                           </template>
                         </tbody>
@@ -1313,6 +1317,50 @@
                 </template>
               </div>
             </template><!-- end summary -->
+
+            <!-- ── Display column-selection modal ──────────────────────── -->
+            <div class="modal-backdrop" x-show="showDisplayColumnsModal" x-cloak
+                 @click="closeDisplayColumnsModal" @keydown.escape.window="closeDisplayColumnsModal">
+              <div class="modal print-modal" @click.stop>
+                <h3>Display Columns</h3>
+                <p class="muted">Select which columns to show in the report view.</p>
+
+                <template x-if="reportType === 'transaction'">
+                  <div class="print-column-checks">
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.date"> Date</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.donor"> Donor</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.email"> Email</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.address"> Address</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.city"> City</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.province"> Province</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.postalCode"> Postal Code</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.total"> Total</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.categories"> Categories</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.receiptable"> Receiptable</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.payment"> Payment Method</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.transaction.notes"> Notes</label>
+                  </div>
+                </template>
+
+                <template x-if="reportType === 'summary'">
+                  <div class="print-column-checks">
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.donor"> Donor</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.email"> Email</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.address"> Address</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.city"> City</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.province"> Province</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.postalCode"> Postal Code</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.count"> # Donations</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.total"> Total</label>
+                    <label class="check-item"><input type="checkbox" x-model="displayColumns.summary.receiptable"> Receiptable</label>
+                  </div>
+                </template>
+
+                <div class="modal-actions">
+                  <button type="button" @click="closeDisplayColumnsModal">Done</button>
+                </div>
+              </div>
+            </div>
 
             <!-- ── Print column-selection modal ─────────────────────────── -->
             <div class="modal-backdrop" x-show="showPrintModal" x-cloak

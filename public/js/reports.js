@@ -102,6 +102,22 @@ document.addEventListener("alpine:init", () => {
       },
     },
 
+    // ── Display columns (on-screen view) ──────────────────────────────────
+    showDisplayColumnsModal: false,
+    displayColumns: {
+      transaction: {
+        date: true, donor: true, email: true, address: true,
+        city: true, province: true, postalCode: true,
+        total: true, categories: true, receiptable: true,
+        payment: true, notes: true,
+      },
+      summary: {
+        donor: true, email: true, address: true,
+        city: true, province: true, postalCode: true,
+        count: true, total: true, receiptable: true,
+      },
+    },
+
     // ── Donor search ──────────────────────────────────────────────────────
     donorResults: [],
     showDonorDropdown: false,
@@ -487,6 +503,14 @@ document.addEventListener("alpine:init", () => {
       this.showPrintModal = false;
       // Let Alpine apply the column-visibility classes before invoking print().
       this.$nextTick(() => window.print());
+    },
+
+    openDisplayColumnsModal() {
+      this.showDisplayColumnsModal = true;
+    },
+
+    closeDisplayColumnsModal() {
+      this.showDisplayColumnsModal = false;
     },
 
     // ─────────────────────────────────────────────────────────────────────
