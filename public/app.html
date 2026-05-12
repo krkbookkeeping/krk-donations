@@ -466,52 +466,72 @@
                     <option value="no">Non-rec.</option>
                   </select>
                   <button class="secondary small" @click="clearFilters" x-show="hasActiveFilters">Clear</button>
+                  <button class="secondary small" @click="openPrintModal" x-show="donations.length > 0">Print</button>
                 </div>
 
                 <div class="report-table-wrap" x-show="donations.length > 0">
+                  <div class="print-only print-report-header">
+                    <h1>Donations List</h1>
+                    <div class="print-filters">
+                      <div><strong>Period:</strong> <span x-text="printDateLabel"></span></div>
+                      <div><strong>Donor:</strong> <span x-text="printDonorLabel"></span></div>
+                      <div><strong>Total range:</strong> <span x-text="printTotalRangeLabel"></span></div>
+                      <div><strong>Payment method:</strong> <span x-text="printPaymentLabel"></span></div>
+                      <div><strong>Receiptable status:</strong> <span x-text="printReceiptableLabel"></span></div>
+                    </div>
+                    <div class="print-sort">
+                      <strong>Sorted by:</strong> <span x-text="printSortLabel"></span>
+                    </div>
+                  </div>
+
                   <table class="report-table">
                   <thead>
                     <tr>
-                      <th class="sortable" @click="setSort('date')">
+                      <th class="sortable" @click="setSort('date')"
+                          :class="{ 'print-hide-col': !printColumns.date }">
                         Date
                         <span class="sort-indicator" x-show="sortBy === 'date'"
                               x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
                       </th>
-                      <th class="sortable" @click="setSort('donor')">
+                      <th class="sortable" @click="setSort('donor')"
+                          :class="{ 'print-hide-col': !printColumns.donor }">
                         Donor
                         <span class="sort-indicator" x-show="sortBy === 'donor'"
                               x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
                       </th>
-                      <th class="num sortable" @click="setSort('total')">
+                      <th class="num sortable" @click="setSort('total')"
+                          :class="{ 'print-hide-col': !printColumns.total }">
                         Total
                         <span class="sort-indicator" x-show="sortBy === 'total'"
                               x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
                       </th>
-                      <th class="sortable" @click="setSort('payment')">
+                      <th class="sortable" @click="setSort('payment')"
+                          :class="{ 'print-hide-col': !printColumns.payment }">
                         Payment
                         <span class="sort-indicator" x-show="sortBy === 'payment'"
                               x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
                       </th>
-                      <th class="sortable" @click="setSort('receiptable')">
+                      <th class="sortable" @click="setSort('receiptable')"
+                          :class="{ 'print-hide-col': !printColumns.receiptable }">
                         Rec.
                         <span class="sort-indicator" x-show="sortBy === 'receiptable'"
                               x-text="sortDir === 'asc' ? '▲' : '▼'"></span>
                       </th>
-                      <th></th>
+                      <th class="no-print"></th>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="don in sortedDonations" :key="don.id">
                       <tr>
-                        <td x-text="don.date"></td>
-                        <td x-text="don.donorName || don.donorId"></td>
-                        <td class="num" x-text="formatCents(don.totalAmountCents)"></td>
-                        <td x-text="paymentMethodName(don.paymentMethodId)"></td>
-                        <td>
+                        <td :class="{ 'print-hide-col': !printColumns.date }" x-text="don.date"></td>
+                        <td :class="{ 'print-hide-col': !printColumns.donor }" x-text="don.donorName || don.donorId"></td>
+                        <td class="num" :class="{ 'print-hide-col': !printColumns.total }" x-text="formatCents(don.totalAmountCents)"></td>
+                        <td :class="{ 'print-hide-col': !printColumns.payment }" x-text="paymentMethodName(don.paymentMethodId)"></td>
+                        <td :class="{ 'print-hide-col': !printColumns.receiptable }">
                           <span x-show="don.hasReceiptable" class="badge receiptable">Yes</span>
                           <span x-show="!don.hasReceiptable" class="badge non-receiptable">No</span>
                         </td>
-                        <td>
+                        <td class="no-print">
                           <div class="action-group">
                             <template x-if="!don.locked">
                               <button class="secondary small" @click="startEdit(don)">Edit</button>
@@ -525,7 +545,18 @@
                       </tr>
                     </template>
                   </tbody>
+                  <tfoot x-show="sortedDonations.length > 0">
+                    <tr>
+                      <td colspan="2"><strong x-text="hasActiveFilters ? 'Total (filtered)' : 'Total'"></strong></td>
+                      <td class="num"><strong x-text="formatCents(filteredTotalCents)"></strong></td>
+                      <td colspan="3"></td>
+                    </tr>
+                  </tfoot>
                   </table>
+
+                  <div class="print-only print-totals">
+                    <div><strong x-text="hasActiveFilters ? 'Total (filtered):' : 'Total:'"></strong> <span x-text="formatCents(filteredTotalCents)"></span></div>
+                  </div>
                 </div>
 
                 <div class="muted" x-show="donations.length > 0 && sortedDonations.length === 0"
@@ -831,6 +862,26 @@
 
               </div>
             </template>
+
+            <!-- ── Print column-selection modal ─────────────────────────── -->
+            <div class="modal-backdrop" x-show="showPrintModal" x-cloak
+                 @click="closePrintModal" @keydown.escape.window="closePrintModal">
+              <div class="modal print-modal" @click.stop>
+                <h3>Print Options</h3>
+                <p class="muted">Select the columns to include in the printed list.</p>
+                <div class="print-column-checks">
+                  <label class="check-item"><input type="checkbox" x-model="printColumns.date"> Date</label>
+                  <label class="check-item"><input type="checkbox" x-model="printColumns.donor"> Donor</label>
+                  <label class="check-item"><input type="checkbox" x-model="printColumns.total"> Total</label>
+                  <label class="check-item"><input type="checkbox" x-model="printColumns.payment"> Payment</label>
+                  <label class="check-item"><input type="checkbox" x-model="printColumns.receiptable"> Receiptable</label>
+                </div>
+                <div class="modal-actions">
+                  <button type="button" @click="triggerPrint">Print</button>
+                  <button type="button" class="secondary" @click="closePrintModal">Cancel</button>
+                </div>
+              </div>
+            </div>
 
           </div><!-- end x-data="donations" -->
         </template>

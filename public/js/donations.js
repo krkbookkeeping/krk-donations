@@ -81,6 +81,16 @@ document.addEventListener("alpine:init", () => {
       receiptable: "all", // "all" | "yes" | "no"
     },
 
+    // ── Print ─────────────────────────────────────────────────────────────
+    showPrintModal: false,
+    printColumns: {
+      date: true,
+      donor: true,
+      total: true,
+      payment: true,
+      receiptable: true,
+    },
+
     // ── Lookup data ───────────────────────────────────────────────────────
     categories: [],
     paymentMethods: [],
@@ -222,6 +232,48 @@ document.addEventListener("alpine:init", () => {
       this.filter.totalMax = "";
       this.filter.paymentMethodId = "";
       this.filter.receiptable = "all";
+    },
+
+    openPrintModal()  { this.showPrintModal = true; },
+    closePrintModal() { this.showPrintModal = false; },
+    triggerPrint() {
+      this.showPrintModal = false;
+      this.$nextTick(() => window.print());
+    },
+
+    get filteredTotalCents() {
+      return this.sortedDonations.reduce((s, d) => s + (d.totalAmountCents || 0), 0);
+    },
+
+    // ── Print-header labels ───────────────────────────────────────────────
+    get printDateLabel() {
+      const f = this.filter;
+      if (!f.dateFrom && !f.dateTo) return "All dates";
+      return `${f.dateFrom || "—"} to ${f.dateTo || "—"}`;
+    },
+    get printDonorLabel() {
+      return this.filter.donor ? `Matches "${this.filter.donor}"` : "All donors";
+    },
+    get printTotalRangeLabel() {
+      const f = this.filter;
+      if (f.totalMin === "" && f.totalMax === "") return "Any amount";
+      const min = f.totalMin === "" ? "—" : `$${f.totalMin}`;
+      const max = f.totalMax === "" ? "—" : `$${f.totalMax}`;
+      return `${min} to ${max}`;
+    },
+    get printPaymentLabel() {
+      if (!this.filter.paymentMethodId) return "All payment methods";
+      return this.paymentMethodName(this.filter.paymentMethodId);
+    },
+    get printReceiptableLabel() {
+      if (this.filter.receiptable === "yes") return "Receiptable only";
+      if (this.filter.receiptable === "no")  return "Non-receiptable only";
+      return "All";
+    },
+    get printSortLabel() {
+      const col = { date: "Date", donor: "Donor", total: "Total", payment: "Payment", receiptable: "Receiptable" }[this.sortBy] || "Date";
+      const dir = this.sortDir === "asc" ? "ascending" : "descending";
+      return `${col}, ${dir}`;
     },
 
     get hasActiveFilters() {
