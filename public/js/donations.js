@@ -700,12 +700,18 @@ document.addEventListener("alpine:init", () => {
         }
 
         if (this.batchMode && this.formMode === "create") {
-          // Keep date + payment method; reset everything else.
-          const savedDate = this.form.date;
-          const savedPm   = this.form.paymentMethodId;
+          // Keep date + payment method + allocation categories; reset amounts.
+          const savedDate   = this.form.date;
+          const savedPm     = this.form.paymentMethodId;
+          const savedAllocs = this.form.allocations.map((a) => ({
+            categoryId: a.categoryId,
+            amountDollars: "",
+            receiptable: a.receiptable,
+          }));
           this.form       = emptyForm();
           this.form.date            = savedDate;
           this.form.paymentMethodId = savedPm;
+          if (savedAllocs.length) this.form.allocations = savedAllocs;
           this.donorQuery    = "";
           this.donorResults  = [];
           this.showDonorDropdown = false;
