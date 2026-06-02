@@ -70,6 +70,10 @@ document.addEventListener("alpine:init", () => {
     sortBy: "date",       // "date" | "donor" | "total" | "payment" | "receiptable"
     sortDir: "desc",      // "asc" | "desc"
 
+    // Date of the most recent donation entered in this session; used as the
+    // default date on the next + New Donation. Empty → falls back to today.
+    lastEnteredDate: "",
+
     // ── Filters (client-side over loaded rows) ────────────────────────────
     filter: {
       dateFrom: "",
@@ -491,6 +495,7 @@ document.addEventListener("alpine:init", () => {
       this.formMode = "create";
       this.editingId = null;
       this.form = emptyForm();
+      if (this.lastEnteredDate) this.form.date = this.lastEnteredDate;
       this.formErrors = {};
       this.saveError = "";
       this.donorQuery = "";
@@ -689,6 +694,10 @@ document.addEventListener("alpine:init", () => {
         }
 
         await this.loadDonations();
+
+        if (this.formMode === "create") {
+          this.lastEnteredDate = this.form.date;
+        }
 
         if (this.batchMode && this.formMode === "create") {
           // Keep date + payment method; reset everything else.
