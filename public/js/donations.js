@@ -165,6 +165,23 @@ document.addEventListener("alpine:init", () => {
         this.paymentMethods = [];
         await Promise.all([this.loadDonations(), this.loadLookups()]);
       });
+
+      // Handoff from Donors → Donations: pre-open the form for a chosen donor.
+      const pending = window.krkPendingNewDonation;
+      if (pending && pending.donorId) {
+        window.krkPendingNewDonation = null;
+        try {
+          const ds = await getDoc(companyDoc("donors", pending.donorId));
+          if (ds.exists()) {
+            this.startCreate();
+            // startCreate() applies defaults inside $nextTick; queue the donor
+            // selection on a later tick so it lands after those defaults.
+            this.$nextTick(() => {
+              this.$nextTick(() => this.selectDonor({ id: ds.id, ...ds.data() }));
+            });
+          }
+        } catch (_e) { /* silent — stays on the donations list */ }
+      }
     },
 
     // ─────────────────────────────────────────────────────────────────────

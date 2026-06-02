@@ -204,7 +204,10 @@
                 <div class="detail-card" style="margin-top:1rem">
                   <div class="section-header">
                     <h3>Donations</h3>
-                    <span class="muted" x-text="'YTD receiptable: ' + formatCents(ytdReceiptable)"></span>
+                    <div style="display:flex;align-items:center;gap:0.75rem">
+                      <span class="muted" x-text="'YTD receiptable: ' + formatCents(ytdReceiptable)"></span>
+                      <button class="small" @click="startNewDonation">+ New Donation</button>
+                    </div>
                   </div>
                   <div x-show="loadingDonations" class="muted">Loading…</div>
                   <div x-show="!loadingDonations && !recentDonations.length" class="muted">No donations yet.</div>

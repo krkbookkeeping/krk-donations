@@ -246,6 +246,18 @@ document.addEventListener("alpine:init", () => {
 
     formatCents(c) { return formatCents(c); },
 
+    // Hands off to the Donations page with the current donor pre-selected.
+    // The donations component reads window.krkPendingNewDonation in its
+    // init() and pre-fills the form.
+    startNewDonation() {
+      if (!this.selected) return;
+      window.krkPendingNewDonation = {
+        donorId:   this.selected.id,
+        donorName: donorName(this.selected),
+      };
+      window.location.hash = "#/donations";
+    },
+
     // ─────────────────────────────────────────────────────────────────────
     // Form
     // ─────────────────────────────────────────────────────────────────────
