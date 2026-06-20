@@ -298,6 +298,10 @@ body { margin: 0; }
   border-radius: 8px;
   padding: 0.75rem 1rem;
 }
+/* Contact card needs more width than its peers so long emails fit on one
+   line. Take 2 grid columns when available (auto-fill gives equal-width
+   columns; spanning 2 doubles the effective width). */
+.detail-card--wide { grid-column: span 2; }
 .detail-card h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
 
 /* dl inside detail card */
