@@ -7,3 +7,8 @@
 - **`public/js/schemas/donor.js`**: Email validator now splits on `,` or `;`, validates each piece against `EMAIL_RE`, names the offending value if any piece fails, and normalizes valid input to a comma-space-separated string. `addWords()` splits on `[\s,;]+` so multi-email and punctuated names/orgs tokenize cleanly for search.
 - **`functions/src/shared/schemas/validators.ts`**: Mirrored the same email-parsing change in the server-side validator.
 - **`public/app.html`**: Added a hint line under the Email field in the donor form: "Separate multiple emails with commas."
+
+### Follow-up — donor detail Email overflow
+
+- **`public/app.html`**: Donor detail Email row now splits the stored string on commas and renders one `<a>` per address, stacked vertically. Each is its own `mailto:` link.
+- **`public/styles.css`**: `.detail-card dt` width shrunk 120 → 90px and made non-shrinking; `.detail-card dd` now `flex: 1; min-width: 0; overflow-wrap: anywhere` so long values can shrink + wrap. New `.email-list` modifier stacks the per-email links with a tight gap.

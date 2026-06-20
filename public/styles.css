@@ -301,9 +301,11 @@ body { margin: 0; }
 .detail-card h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
 
 /* dl inside detail card */
-.detail-card dl > div { display: flex; gap: 0.5rem; margin-bottom: 0.3rem; }
-.detail-card dt { font-weight: 600; min-width: 120px; color: var(--muted); font-size: 0.82rem; }
-.detail-card dd { margin: 0; font-size: 0.82rem; }
+.detail-card dl > div { display: flex; gap: 0.5rem; margin-bottom: 0.3rem; align-items: baseline; }
+.detail-card dt { font-weight: 600; min-width: 90px; color: var(--muted); font-size: 0.82rem; flex-shrink: 0; }
+.detail-card dd { margin: 0; font-size: 0.82rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.detail-card dd.email-list { display: flex; flex-direction: column; gap: 0.15rem; }
+.detail-card dd.email-list a { overflow-wrap: anywhere; }
 
 /* Heading + stat side-by-side */
 .section-header {

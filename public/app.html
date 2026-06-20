@@ -173,7 +173,14 @@
                         <div><dt>Organization</dt><dd x-text="selected.orgName"></dd></div>
                       </template>
                       <template x-if="selected.email">
-                        <div><dt>Email</dt><dd><a :href="'mailto:' + selected.email" x-text="selected.email"></a></dd></div>
+                        <div>
+                          <dt>Email</dt>
+                          <dd class="email-list">
+                            <template x-for="e in selected.email.split(',').map(s => s.trim()).filter(Boolean)" :key="e">
+                              <a :href="'mailto:' + e" x-text="e"></a>
+                            </template>
+                          </dd>
+                        </div>
                       </template>
                       <template x-if="selected.phone">
                         <div><dt>Phone</dt><dd x-text="selected.phone"></dd></div>
