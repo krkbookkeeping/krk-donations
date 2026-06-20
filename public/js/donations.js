@@ -188,6 +188,18 @@ document.addEventListener("alpine:init", () => {
           }
         } catch (_e) { /* silent — stays on the donations list */ }
       }
+
+      // Handoff from Donors → Donations: open an existing donation for edit.
+      const pendingEdit = window.krkPendingEditDonation;
+      if (pendingEdit && pendingEdit.donationId) {
+        window.krkPendingEditDonation = null;
+        try {
+          const ds = await getDoc(companyDoc("donations", pendingEdit.donationId));
+          if (ds.exists()) {
+            await this.startEdit({ id: ds.id, ...ds.data() });
+          }
+        } catch (_e) { /* silent — stays on the donations list */ }
+      }
     },
 
     // ─────────────────────────────────────────────────────────────────────

@@ -87,6 +87,10 @@ document.addEventListener("alpine:init", () => {
     loadingDonations: false,
     ytdReceiptable: 0,
 
+    // Cached lookup so the donor-detail donations table can render the
+    // payment method name instead of the raw id.
+    paymentMethods: [],
+
     // ── Form ──────────────────────────────────────────────────────────────
     formMode: "create",
     form: emptyForm(),
@@ -109,11 +113,12 @@ document.addEventListener("alpine:init", () => {
     // ─────────────────────────────────────────────────────────────────────
     async init() {
       await companyReady;
-      await this.loadDonors();
+      await Promise.all([this.loadDonors(), this.loadPaymentMethods()]);
       this.reindexDonors(); // fire-and-forget background re-index
       window.addEventListener("krk:companyChanged", async () => {
         this.reset();
-        await this.loadDonors();
+        this.paymentMethods = [];
+        await Promise.all([this.loadDonors(), this.loadPaymentMethods()]);
         this.reindexDonors();
       });
     },
@@ -246,6 +251,20 @@ document.addEventListener("alpine:init", () => {
 
     formatCents(c) { return formatCents(c); },
 
+    async loadPaymentMethods() {
+      try {
+        const snap = await getDocs(query(
+          companyCollection("paymentMethods"),
+          orderBy("name"),
+        ));
+        this.paymentMethods = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (_) { this.paymentMethods = []; }
+    },
+
+    paymentMethodName(id) {
+      return this.paymentMethods.find((p) => p.id === id)?.name ?? "—";
+    },
+
     // Hands off to the Donations page with the current donor pre-selected.
     // The donations component reads window.krkPendingNewDonation in its
     // init() and pre-fills the form.
@@ -255,6 +274,14 @@ document.addEventListener("alpine:init", () => {
         donorId:   this.selected.id,
         donorName: donorName(this.selected),
       };
+      window.location.hash = "#/donations";
+    },
+
+    // Opens an existing donation for edit on the Donations page.
+    // Locked donations cannot be edited — silently no-op.
+    openDonationForEdit(don) {
+      if (!don || don.locked) return;
+      window.krkPendingEditDonation = { donationId: don.id };
       window.location.hash = "#/donations";
     },
 

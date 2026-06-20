@@ -215,10 +215,15 @@
                     <thead><tr><th>Date</th><th>Amount</th><th>Payment</th></tr></thead>
                     <tbody>
                       <template x-for="don in recentDonations" :key="don.id">
-                        <tr>
-                          <td x-text="don.date"></td>
+                        <tr :class="{ 'clickable-row': !don.locked }"
+                            @click="openDonationForEdit(don)"
+                            :title="don.locked ? 'Locked — receipt issued, cannot edit' : 'Click to edit'">
+                          <td>
+                            <span x-show="don.locked" title="Locked — receipt issued" style="margin-right:.25rem">🔒</span>
+                            <span x-text="don.date"></span>
+                          </td>
                           <td x-text="formatCents(don.totalAmountCents)"></td>
-                          <td x-text="don.paymentMethodId"></td>
+                          <td x-text="paymentMethodName(don.paymentMethodId)"></td>
                         </tr>
                       </template>
                     </tbody>
