@@ -293,8 +293,12 @@
                 <div class="form-row">
                   <label>
                     Email
-                    <input type="email" x-model="form.email" :class="{ error: formErrors.email }">
+                    <input type="email" x-model="form.email" :class="{ error: formErrors.email }"
+                           placeholder="email@example.com (commas for multiple)">
                     <span class="field-error" x-show="formErrors.email" x-text="formErrors.email"></span>
+                    <small class="muted" style="display:block;font-size:0.78rem;margin-top:0.15rem">
+                      Separate multiple emails with commas.
+                    </small>
                   </label>
                   <label>
                     Phone

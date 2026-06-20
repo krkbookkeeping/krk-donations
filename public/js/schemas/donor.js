@@ -25,8 +25,18 @@ export function validateDonor(input) {
   if (value.orgName.length > 200) errors.orgName = "Max 200 characters.";
 
   value.email = trimOrEmpty(input.email);
-  if (value.email && !EMAIL_RE.test(value.email)) {
-    errors.email = "Invalid email address.";
+  if (value.email) {
+    // Allow comma- or semicolon-separated lists. Validate each piece, then
+    // normalize to a comma-space-separated string for storage.
+    const parts = value.email.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+    const bad   = parts.find((p) => !EMAIL_RE.test(p));
+    if (bad) {
+      errors.email = parts.length > 1
+        ? `Invalid email address: ${bad}`
+        : "Invalid email address.";
+    } else {
+      value.email = parts.join(", ");
+    }
   }
 
   value.phone = trimOrEmpty(input.phone);
@@ -67,7 +77,9 @@ export function validateDonor(input) {
 
 function addWords(tokens, str) {
   if (!str) return;
-  for (const t of String(str).toLowerCase().split(/\s+/)) {
+  // Split on whitespace + commas/semicolons so multi-email donor records and
+  // punctuated names ("Smith, John", "ABC, Inc.") tokenize cleanly.
+  for (const t of String(str).toLowerCase().split(/[\s,;]+/)) {
     if (t.length >= 2) tokens.add(t);
   }
 }

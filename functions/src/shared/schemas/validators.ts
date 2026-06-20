@@ -52,8 +52,18 @@ export function validateDonor(input: Record<string, unknown>): ValidationResult<
   if (lastName.length > 100) errors.lastName = "Max 100 characters.";
   if (orgName.length > 200) errors.orgName = "Max 200 characters.";
 
-  const email = trimOrEmpty(input.email);
-  if (email && !EMAIL_RE.test(email)) errors.email = "Invalid email.";
+  let email = trimOrEmpty(input.email);
+  if (email) {
+    // Allow comma- or semicolon-separated lists. Validate each piece, then
+    // normalize to a comma-space-separated string for storage.
+    const parts = email.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+    const bad = parts.find((p) => !EMAIL_RE.test(p));
+    if (bad) {
+      errors.email = parts.length > 1 ? `Invalid email: ${bad}` : "Invalid email.";
+    } else {
+      email = parts.join(", ");
+    }
+  }
 
   const phone = trimOrEmpty(input.phone);
   if (phone && !PHONE_RE.test(phone)) errors.phone = "Invalid phone.";
