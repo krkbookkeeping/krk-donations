@@ -126,6 +126,8 @@ document.addEventListener("alpine:init", () => {
     // ── Attachments ───────────────────────────────────────────────────────
     attachments: [],
     attachmentsLoading: false,
+    // Files queued during create mode; uploaded after the donation save commits.
+    pendingAttachments: [],
     uploading: false,
     uploadProgress: 0,
     dragOver: false,
@@ -497,6 +499,7 @@ document.addEventListener("alpine:init", () => {
       this.form = emptyForm();
       if (this.lastEnteredDate) this.form.date = this.lastEnteredDate;
       this.formErrors = {};
+      this.pendingAttachments = [];
       this.saveError = "";
       this.donorQuery = "";
       this.donorResults = [];
@@ -604,6 +607,7 @@ document.addEventListener("alpine:init", () => {
 
     cancelForm() {
       this.attachments = [];
+      this.pendingAttachments = [];
       this.view = "list";
     },
 
@@ -655,6 +659,7 @@ document.addEventListener("alpine:init", () => {
         };
 
         const batch = writeBatch(db);
+        let newDonationId = null;
 
         if (this.formMode === "create") {
           const donationRef = doc(companyCollection("donations"));
@@ -670,6 +675,7 @@ document.addEventListener("alpine:init", () => {
             });
           }
           await batch.commit();
+          newDonationId = donationRef.id;
         } else {
           // Edit: replace allocations atomically.
           const donationRef  = companyDoc("donations", this.editingId);
@@ -697,6 +703,33 @@ document.addEventListener("alpine:init", () => {
 
         if (this.formMode === "create") {
           this.lastEnteredDate = this.form.date;
+        }
+
+        // Flush queued attachments for the just-created donation.
+        if (newDonationId && this.pendingAttachments.length > 0) {
+          this.uploading = true;
+          const failures = [];
+          try {
+            for (const p of this.pendingAttachments) {
+              try {
+                await this.uploadFileToDonation(p.file, newDonationId);
+              } catch (err) {
+                failures.push(`${p.name}: ${err?.message || "upload failed"}`);
+              }
+            }
+          } finally {
+            this.uploading = false;
+            this.uploadProgress = 0;
+            this.pendingAttachments = [];
+          }
+          if (failures.length) {
+            // Donation is saved; only the upload(s) failed. Surface clearly.
+            alert(
+              `Donation saved, but ${failures.length} attachment(s) failed to upload:\n\n` +
+              failures.join("\n") +
+              "\n\nOpen the donation and try attaching again.",
+            );
+          }
         }
 
         if (this.batchMode && this.formMode === "create") {
@@ -760,22 +793,25 @@ document.addEventListener("alpine:init", () => {
     },
 
     handleFiles(fileList) {
-      for (const file of fileList) this.uploadFile(file);
+      if (this.formMode === "create") {
+        for (const file of fileList) {
+          this.pendingAttachments.push({
+            file,
+            name: file.name,
+            size: file.size,
+            contentType: file.type,
+          });
+        }
+      } else {
+        for (const file of fileList) this.uploadFile(file);
+      }
     },
 
     async uploadFile(file) {
       if (!file || !this.editingId) return;
       this.uploading = true;
       try {
-        const fileRef = storageRef(storage, `companies/${getActiveCompanyId()}/donations/${this.editingId}/${file.name}`);
-        await new Promise((resolve, reject) => {
-          const task = uploadBytesResumable(fileRef, file, { contentType: file.type });
-          task.on("state_changed",
-            (snap) => { this.uploadProgress = Math.round((snap.bytesTransferred / snap.totalBytes) * 100); },
-            reject,
-            resolve,
-          );
-        });
+        await this.uploadFileToDonation(file, this.editingId);
         await this.loadAttachments();
       } catch (err) {
         this.saveError = `Upload failed: ${err?.message || "unknown error"}`;
@@ -785,6 +821,20 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    // Lower-level upload that doesn't depend on this.editingId, used both by
+    // edit-mode uploads and by the post-create-save flush of pendingAttachments.
+    async uploadFileToDonation(file, donationId) {
+      const fileRef = storageRef(storage, `companies/${getActiveCompanyId()}/donations/${donationId}/${file.name}`);
+      await new Promise((resolve, reject) => {
+        const task = uploadBytesResumable(fileRef, file, { contentType: file.type });
+        task.on("state_changed",
+          (snap) => { this.uploadProgress = Math.round((snap.bytesTransferred / snap.totalBytes) * 100); },
+          reject,
+          resolve,
+        );
+      });
+    },
+
     onFileInput(event) {
       const files = Array.from(event.target.files || []);
       if (files.length) this.handleFiles(files);
@@ -792,10 +842,14 @@ document.addEventListener("alpine:init", () => {
     },
 
     onPaste(event) {
-      if (this.formMode !== "edit") return;
+      if (this.view !== "form") return;
       const items = Array.from(event.clipboardData?.items || []);
       const files = items.filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
       if (files.length) { event.preventDefault(); this.handleFiles(files); }
+    },
+
+    deletePending(idx) {
+      this.pendingAttachments.splice(idx, 1);
     },
 
     async deleteAttachment(item) {

@@ -775,8 +775,8 @@
                 <span class="field-error" x-show="formErrors.balance" x-text="formErrors.balance"></span>
                 <p class="save-error-banner" x-show="saveError" x-text="saveError"></p>
 
-                <!-- ── Attachments (edit mode only) ──────────────────────── -->
-                <div class="attach-section" x-show="formMode === 'edit'">
+                <!-- ── Attachments ──────────────────────────────────────── -->
+                <div class="attach-section">
                   <h3 class="attach-heading">Attachments</h3>
 
                   <!-- Drop zone -->
@@ -798,7 +798,26 @@
                     <p class="attach-loading" x-show="attachmentsLoading && !uploading">Loading attachments…</p>
                   </div>
 
-                  <!-- Attachment list -->
+                  <!-- Pending list (create mode — queued until save) -->
+                  <ul class="attach-list" x-show="pendingAttachments.length > 0">
+                    <template x-for="(p, idx) in pendingAttachments" :key="idx">
+                      <li class="attach-item">
+                        <div class="attach-thumb-wrap">
+                          <span class="attach-icon">📎</span>
+                        </div>
+                        <div class="attach-meta">
+                          <span class="attach-name" x-text="p.name"></span>
+                          <span class="attach-size muted">
+                            <span x-text="formatFileSize(p.size)"></span> · pending
+                          </span>
+                        </div>
+                        <button type="button" class="link-button attach-delete danger"
+                                @click="deletePending(idx)" title="Remove">✕</button>
+                      </li>
+                    </template>
+                  </ul>
+
+                  <!-- Uploaded list (edit mode) -->
                   <ul class="attach-list" x-show="attachments.length > 0">
                     <template x-for="att in attachments" :key="att.path">
                       <li class="attach-item">
@@ -815,13 +834,17 @@
                       </li>
                     </template>
                   </ul>
-                  <p class="muted attach-empty" x-show="!attachmentsLoading && !uploading && attachments.length === 0">
+
+                  <p class="muted attach-empty"
+                     x-show="formMode === 'edit' && !attachmentsLoading && !uploading && attachments.length === 0">
                     No attachments yet.
                   </p>
+                  <p class="muted attach-empty"
+                     x-show="formMode === 'create' && pendingAttachments.length === 0 && !uploading"
+                     style="font-size:0.85em">
+                    Files will upload after you save the donation.
+                  </p>
                 </div>
-                <p class="muted attach-create-note" x-show="formMode === 'create'" style="font-size:0.85em; margin-top:1rem;">
-                  Save the donation first, then open it to add attachments.
-                </p>
 
                 <!-- ── Batch mode + Save ───────────────────────────────── -->
                 <div class="form-actions" style="margin-top:1rem">
