@@ -1573,6 +1573,21 @@
                   <div x-show="!pendingLoading && pendingDonors.length === 0" class="empty-state">
                     No unlocked receiptable donations for <span x-text="filterYear"></span>.
                   </div>
+
+                  <!-- Bulk action row -->
+                  <div class="report-results-header" x-show="pendingDonors.length > 0">
+                    <span class="muted" x-show="!generatingAll"
+                          x-text="`${pendingDonors.length} donor${pendingDonors.length !== 1 ? 's' : ''} ready for receipts`"></span>
+                    <span class="muted" x-show="generatingAll"
+                          x-text="`Generating receipt ${bulkProgress.current} of ${bulkProgress.total}…`"></span>
+                    <button type="button" class="small"
+                            @click="generateAllReceipts"
+                            :disabled="generatingAll || pendingDonors.length === 0">
+                      <span x-show="!generatingAll">Generate All Receipts</span>
+                      <span x-show="generatingAll">Generating…</span>
+                    </button>
+                  </div>
+
                   <div class="report-table-wrap" x-show="pendingDonors.length > 0">
                     <table class="report-table">
                     <thead>

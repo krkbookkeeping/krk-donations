@@ -216,6 +216,11 @@ document.addEventListener("alpine:init", () => {
     // ── Per-row generating state ──────────────────────────────────────────
     generating: {},
 
+    // ── Bulk-generate state ───────────────────────────────────────────────
+    generatingAll: false,
+    bulkProgress: { current: 0, total: 0, ok: 0, failed: 0 },
+    bulkFailures: [],
+
     // ── Messages ─────────────────────────────────────────────────────────
     successMessage: "",
     errorMessage:   "",
@@ -336,6 +341,69 @@ document.addEventListener("alpine:init", () => {
       } finally {
         const { [donorId]: _removed, ...rest } = this.generating;
         this.generating = rest;
+      }
+    },
+
+    // Sequentially generate a receipt for every pending donor.
+    // Failures are collected and reported at the end; one bad donor doesn't
+    // abort the rest of the batch.
+    async generateAllReceipts() {
+      if (this.generatingAll || this.pendingDonors.length === 0) return;
+      const total = this.pendingDonors.length;
+      if (!confirm(
+        `Generate receipts for all ${total} pending donor${total !== 1 ? "s" : ""}? ` +
+        `Each receipt will download as a separate PDF. ` +
+        `Your browser may ask for permission to download multiple files.`
+      )) return;
+
+      this.errorMessage   = "";
+      this.successMessage = "";
+      this.generatingAll  = true;
+      this.bulkProgress   = { current: 0, total, ok: 0, failed: 0 };
+      this.bulkFailures   = [];
+
+      // Snapshot so loadData() at the end doesn't affect the iteration.
+      const donors = [...this.pendingDonors];
+      const fn = httpsCallable(functions, "generateReceipt");
+
+      for (const donor of donors) {
+        this.bulkProgress.current += 1;
+        this.generating = { ...this.generating, [donor.donorId]: true };
+        try {
+          const res = await fn({
+            companyId: getActiveCompanyId(),
+            donorId:   donor.donorId,
+            year:      this.filterYear,
+          });
+          const receipt = res.data;
+          buildReceiptPDF(receipt).save(`receipt-${receipt.receiptNumber}.pdf`);
+          this.bulkProgress.ok += 1;
+        } catch (err) {
+          this.bulkProgress.failed += 1;
+          this.bulkFailures.push({
+            donorName: donor.donorName,
+            error:     err?.message || "unknown error",
+          });
+        } finally {
+          const { [donor.donorId]: _r, ...rest } = this.generating;
+          this.generating = rest;
+        }
+      }
+
+      try { await this.loadData(); } catch (_) {}
+      this.generatingAll = false;
+
+      const { ok, failed } = this.bulkProgress;
+      if (failed === 0) {
+        this.successMessage = `Generated ${ok} receipt${ok !== 1 ? "s" : ""}.`;
+      } else {
+        const lines = this.bulkFailures
+          .slice(0, 5)
+          .map((f) => `• ${f.donorName}: ${f.error}`)
+          .join("\n");
+        const more = this.bulkFailures.length > 5 ? `\n…and ${this.bulkFailures.length - 5} more.` : "";
+        this.errorMessage =
+          `Generated ${ok} receipt${ok !== 1 ? "s" : ""}, ${failed} failed:\n${lines}${more}`;
       }
     },
 
