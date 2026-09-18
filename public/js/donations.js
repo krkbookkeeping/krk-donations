@@ -623,6 +623,36 @@ document.addEventListener("alpine:init", () => {
       this.view = "list";
     },
 
+    copyDonation() {
+      if (this.formMode !== "edit" || this.saving || this.uploading) return;
+
+      // Keep only fields that belong to a new donation. In particular, never
+      // carry allocation document IDs or record-specific attachments forward.
+      this.form = {
+        donorId:         this.form.donorId,
+        donorName:       this.form.donorName,
+        date:            this.form.date,
+        amountDollars:   this.form.amountDollars,
+        paymentMethodId: this.form.paymentMethodId,
+        referenceNumber: this.form.referenceNumber,
+        notes:           this.form.notes,
+        allocations: this.form.allocations.map((allocation) => ({
+          categoryId:    allocation.categoryId,
+          amountDollars: allocation.amountDollars,
+          receiptable:   allocation.receiptable,
+        })),
+      };
+      this.formMode = "create";
+      this.editingId = null;
+      this.batchMode = false;
+      this.formErrors = {};
+      this.saveError = "";
+      this.attachments = [];
+      this.pendingAttachments = [];
+      this.attachmentsLoading = false;
+      this.takeFormSnapshot();
+    },
+
     // ─────────────────────────────────────────────────────────────────────
     // Save
     // ─────────────────────────────────────────────────────────────────────

@@ -596,7 +596,11 @@
               <div class="form-page" @paste.window="onPaste($event)" @keydown.escape.window="onEscape()">
                 <div class="page-header">
                   <h1 x-text="formMode === 'create' ? 'New Donation' : 'Edit Donation'"></h1>
-                  <button class="secondary" @click="cancelForm">Cancel</button>
+                  <div class="action-group">
+                    <button type="button" class="copy-donation small" x-show="formMode === 'edit'"
+                            @click="copyDonation" :disabled="saving || uploading">Copy</button>
+                    <button class="secondary" @click="cancelForm">Cancel</button>
+                  </div>
                 </div>
 
                 <!-- ── Donor ─────────────────────────────────────────── -->
@@ -869,6 +873,8 @@
                     <span x-show="!saving" x-text="formMode === 'create' ? (batchMode ? 'Save &amp; Next' : 'Save Donation') : 'Save Changes'"></span>
                     <span x-show="saving">Saving…</span>
                   </button>
+                  <button type="button" class="copy-donation small" x-show="formMode === 'edit'"
+                          @click="copyDonation" :disabled="saving || uploading">Copy</button>
                   <button class="secondary" @click="cancelForm" :disabled="saving">Cancel</button>
                   <template x-if="formMode === 'create'">
                     <label class="batch-toggle">

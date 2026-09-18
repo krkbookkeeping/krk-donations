@@ -397,6 +397,18 @@ button.danger:hover {
 /* Small button variant */
 button.small { padding: 0.3rem 0.7rem; font-size: 0.82rem; }
 
+/* Donation copy action: intentionally quieter than the primary save control. */
+button.copy-donation {
+  background: #537866;
+  border-color: #537866;
+  color: #fff;
+}
+button.copy-donation:hover,
+button.copy-donation:focus {
+  background: #426451;
+  border-color: #426451;
+}
+
 /* --- Donations ------------------------------------------------------ */
 
 /* Donor search */
